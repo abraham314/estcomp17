@@ -1,0 +1,226 @@
+---
+title: "Tarea: intervalos de confianza"
+author: "Abraham Nieto"
+date: "9/13/2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+knitr::opts_chunk$set(echo = TRUE)
+theme_set(theme_minimal())
+```
+
+### 1. ENIGH
+Para este ejercicio usaremos los datos de la [ENIGH](http://www.inegi.org.mx/est/contenidos/proyectos/encuestas/hogares/regulares/enigh/) 
+(2014). En la tabla concentradohogar que vimos en clase se incluyen las variables 
+alimentos, vestido, vivienda, salud, comunica, educacion y esparci 
+(esparcimiento) que indican el gasto trimestral en cada una de las categorías. 
+
+```{r enigh, message=FALSE, warning=FALSE}
+concentrado_hogar <- read_csv("concentradohogar.csv")
+hogar <- concentrado_hogar %>% 
+    select(folioviv, foliohog, est_dis, upm, factor_hog, ing_cor, alimentos, 
+        vestido, vivienda, salud, transporte, comunica, educacion, esparci)
+```
+
+Nos interesa analizar los patrones de gasto por decil de ingreso, para ello 
+sigue los siguientes pasos.
+
+1. Calcula los deciles de ingreso usando la variable de ingreso corriente (ing_cor).
+Debes tomar en cuenta el diseño de la muestra, puedes usar la función
+`survey_quantile()` del paquete `srvyr` o `svyquantile()` del paquete `survey`.
+Reporta las estimaciones y sus errores estándar usando el bootstrap de Rao y Wu.
+```{r}
+library(srvyr)
+library(survey)
+enigh_design <- hogar %>% 
+    as_survey_design(ids = upm, weights = factor_hog, strata = est_dis)
+
+set.seed(7398731)
+enigh_boot <- enigh_design %>% 
+    as_survey_rep(type = "subbootstrap", replicates = 500)
+
+enigh_boot %>% 
+    srvyr::summarise(mean_ingcor = survey_mean(ing_cor))
+
+qq<-svyquantile(~ing_cor, enigh_boot, quantiles = seq(0.1, 1, 0.1), interval.type = "quantile")
+qq
+  
+```
+
+
+2. Crea una nueva variable que indique el decil de ingreso para cada hogar. 
+Tips: 1) una función que puede resultar útil es `cut2()` (de `Hmisc`), 
+2) si usas el paquete `srvyr` puedes usar `mutate()` sobre
+el objeto `survey` con pesos de replicaciones bootstrap.
+
+```{r}
+
+library(Hmisc)
+hogar$decil<-as.character(cut2(hogar$ing_cor,qq))
+hogar
+```
+
+
+3. Estima para cada decil, el porcentaje del gasto 
+en cada categoría, reporta el error estándar de las estimaciones, usa 
+el bootstrap de Rao y Wu. Tip: 1) agrega una variable que indica para cada hogar el 
+porcentaje de gasto en cada categoría, 2) si usas srvyr puedes usar la función 
+`group_by()` para estimar la media del porcentaje de gasto por decil.
+```{r}
+zer<-function(x){
+  if(x==0){
+    return(.01)
+  }
+  else{
+    return(x)
+  }
+}
+
+den<-sapply((hogar$alimentos+hogar$vestido+hogar$vivienda+hogar$salud+hogar$transporte+hogar$comunica+hogar$educacion+hogar$esparci),zer)
+
+hogar$palim<-(hogar$alimentos/den)
+hogar$pvestido<-hogar$vestido/den
+hogar$pvivienda<-hogar$vivienda/den
+hogar$psalud<-hogar$salud/den
+hogar$ptransporte<-hogar$transporte/den
+hogar$pcomunica<-hogar$comunica/den
+hogar$peducacion<-hogar$educacion/den
+hogar$pesparci<-hogar$esparci/den
+
+
+
+enigh_design2 <- hogar %>% 
+    as_survey_design(ids = upm, weights = factor_hog, strata = est_dis) 
+
+enigh_boot2 <- enigh_design2 %>% 
+    as_survey_rep(type = "subbootstrap", replicates = 500)
+
+
+fin<-data.frame(enigh_boot2 %>% 
+    srvyr::group_by(decil) %>% 
+    srvyr::summarise(mean_palim = survey_mean(palim),mean_pvestido = survey_mean(pvestido),mean_pvivienda = survey_mean(pvivienda),mean_psalud = survey_mean(psalud),mean_ptransporte = survey_mean(ptransporte),mean_pcomunica = survey_mean(pcomunica),mean_peducacion = survey_mean(peducacion),mean_pesparci = survey_mean(pesparci)))
+fin
+```
+
+
+
+4. Realiza una gráfica con las estimaciones del paso 3.
+```{r}
+library(ggplot2)
+library(plotly)
+ggplotly(ggplot()+geom_point(data=fin,aes(x=decil,y=mean_pvestido,color='vestido'))+geom_point(data=fin,aes(x=decil,y=mean_psalud,color='salud'))+geom_point(data=fin,aes(x=decil,y=mean_palim,color='alimentos'))+geom_point(data=fin,aes(x=decil,y=mean_pvivienda,color='vivienda'))+geom_point(data=fin,aes(x=decil,y=mean_ptransporte,color='transporte'))+geom_point(data=fin,aes(x=decil,y=mean_pcomunica,color='comunica'))+geom_point(data=fin,aes(x=decil,y=mean_peducacion,color='educacion'))+geom_line(data=fin,aes(x=decil,y=mean_pesparci,color='esparcimiento')))
+```
+
+las estimaciones muestran como la proporción de gasto en alimentos es menor mientras más ganas, así como el gasto en transporte es mayor mientras más ganas al igual que el gasto en vestido.
+
+
+### 2. Cobertura de intervalos
+Vamos a retomar de simulación que vimos en clase, donde comparamos los intervalos de 
+confianza construidos con el método de percentiles y usando la aproximación 
+normal ($\hat{\theta} \pm 1.96 \hat{se}$). 
+
+Generamos una muestra de tamaño 30 (en clase era 10) de una distribución normal 
+estándar, el parámetro de interés es $e^{\mu}$ donde $\mu$ es la media poblacional.
+
+```{r}
+set.seed(766587)
+x <- rnorm(30)
+```
+
+1. Construye intervalos de confianza con el método de percentiles y de 
+aproximación normal.
+
+```{r}
+boot_sim_exp <- function(){
+  x_boot <- sample(x, size = 30, replace = TRUE)
+  exp(mean(x_boot))
+}
+theta_boot <- rerun(1000, boot_sim_exp()) %>% flatten_dbl()
+theta_boot_df <- data_frame(theta_boot)
+
+hist_emu <- ggplot(theta_boot_df, aes(x = theta_boot)) +
+    geom_histogram(fill = "gray30", binwidth = 0.08) 
+qq_emu <- ggplot(theta_boot_df) +
+    geom_abline(color = "red", alpha = 0.5) +
+    stat_qq(aes(sample = theta_boot), 
+        dparams = list(mean = mean(theta_boot), sd = sd(theta_boot))) 
+
+#grid.arrange(hist_emu, qq_emu, ncol = 2, newpage = FALSE)
+hist_emu
+qq_emu
+
+```
+Hacemos una transformación logaritmica pra normalizar los datos:
+
+```{r}
+hist_log <- ggplot(data_frame(theta_boot), aes(x = log(theta_boot))) +
+  geom_histogram(fill = "gray30", binwidth = 0.08) 
+qq_log <- ggplot(data_frame(theta_boot)) +
+    geom_abline(color = "red", alpha = 0.5) +
+    stat_qq(aes(sample = log(theta_boot)), 
+        dparams = list(mean = mean(log(theta_boot)), sd = sd(log(theta_boot))))
+hist_log
+qq_log
+```
+y mapeando la transformación de regreso tenemos los intervalos de confianza siguientes para $e^{\mu}$:
+```{r}
+#Con el intervalo Normal tenemos:
+n1<-exp(round(mean(x) - 1.96 * sd(log(theta_boot)), 2))
+
+n2<-exp(round(mean(x) + 1.96 * sd(log(theta_boot)), 2))
+
+#Con quantiles:
+q1<-exp(round(quantile(log(theta_boot), prob = 0.025), 2))
+
+q2<-exp(round(quantile(log(theta_boot), prob = 0.975), 2))
+n1
+n2
+q1
+q2
+```
+
+2. ¿Cuál tiene mejor cobertura? Realiza 500 simulaciones de vectores de tamaño
+30 de una normal estándar, para cada simulación calcula $\hat{\theta}$ y calcula 
+el porcentaje de realizaciones que caen dentro de cada intervalo de confianza.
+```{r}
+cae<-function(x,inf,sup){
+
+  if(x>=inf & x<=sup){
+    a<-1
+  }
+  else{
+    a<-0
+  }
+  return(a)
+}
+sals<-c(rep(0,500))
+for(i in 1:500){
+sals[i]<-exp(mean(rnorm(30)))  
+}
+
+```
+Para el intervalo de la normal tenemos que:
+```{r}
+ perc<-c(rep(0,500))
+for(i in 1:500){
+  perc[i]<-cae(sals[i],n1,n2)
+}
+normal<-mean(perc) 
+normal
+```
+
+vemos que el 70% de los parámetros están dentro del intervalo
+
+y con los cuantíles tenemos que:
+```{r}
+ perc<-c(rep(0,500))
+for(i in 1:500){
+  perc[i]<-cae(sals[i],q1,q2)
+}
+normal<-mean(perc) 
+normal
+```
+
+el 75% de los casos caen en el inervalo por tanto ajusta mejor el intervalo de cuantiles.

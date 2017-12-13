@@ -1,0 +1,112 @@
+---
+title: "diamonds"
+author: "Abraham Nieto 51556"
+date: "16 de octubre de 2017"
+output: html_document
+---
+```{r options, echo = FALSE, message=FALSE, error=TRUE, warning=FALSE}
+knitr::opts_chunk$set(
+    comment = "#>",
+    collapse = TRUE, 
+    fig.width=3, fig.height=3
+)
+comma <- function(x) format(x, digits = 2, big.mark = ",")
+options(digits=3)
+
+library(tidyverse)
+library(gridExtra)
+library(dplyr)
+theme_set(theme_minimal())
+```
+
+
+```{r}
+set.seed(3456543)
+library(nullabor)
+nd<-sample_n(diamonds,5000,replace=FALSE)
+d<-lineup(null_permute("depth"),nd)
+ggplot(data=d,aes(x=depth,y=carat))+geom_jitter()+facet_wrap(~.sample)
+```
+```{r}
+# Verosimilitud X_1,...,X_n ~ Bernoulli(theta)
+L_bernoulli <- function(n, S){
+    function(theta){
+        theta ^ S * (1 - theta) ^ (n - S)
+    }  
+}
+# log-verosimilitud
+l_bernoulli <- function(n, S){
+    function(theta){
+        S * log(theta) + (n - S) * log(1 - theta)
+    }  
+}
+xy <- data.frame(x = 0:1, y = 0:1)
+verosimilitud <- ggplot(xy, aes(x = x, y = y)) +
+    stat_function(fun = L_bernoulli(n = 20, S = 12)) +
+    xlab(expression(theta)) +
+    ylab(expression(L(theta))) +
+    ggtitle("Verosimilitud (n=20, S = 12)")
+
+log_verosimilitud <- ggplot(xy, aes(x = x, y = y)) +
+    stat_function(fun = l_bernoulli(n = 20, S = 12))+
+    xlab(expression(theta)) +
+    ylab(expression(l(theta))) +
+    ggtitle("log-verosimilitud (n=20, S = 12)")
+
+grid.arrange(verosimilitud, log_verosimilitud, nrow = 1)  
+```
+```{r}
+optimize(L_bernoulli(n = 20, S = 12), interval = c(0, 1), maximum = TRUE)
+
+optimize(l_bernoulli(n = 20, S = 12), interval = c(0, 1), maximum = TRUE)
+```
+
+```{r}
+n <- 200
+x <- rnorm(n, mean = 10, sd = 5)  # observaciones normales
+
+# Paso 1: calcular mu_hat y sigma_hat
+mu_hat <- mean(x)  
+sigma_hat <- sqrt(1 / n * sum((x - mu_hat) ^ 2)) 
+
+# Pasos 2 y 3
+thetaBoot <- function(){
+    # Simular X_1*,...X_N* con distribución N(mu_hat, sigma_hat^2) 
+    x_boot <- rnorm(n, mean = mu_hat, sd = sigma_hat) 
+    # Calcular mu*, sigma* y theta*
+    mu_boot <- mean(x_boot)
+    sigma_boot <- sqrt(1 / n * sum((x_boot - mu_boot) ^ 2)) 
+    sigma_boot / mu_boot # theta*
+}
+
+# Paso 4: Repetimos B = 2000 veces y estimamos el error estándar
+sims_boot <- rerun(3000, thetaBoot()) %>% flatten_dbl()
+sqrt(1 / 2999 * sum((sims_boot - sigma_hat/mu_hat) ^ 2))
+```
+
+```{r}
+theta<-2/7
+rerun(1000,rbinom(1,70,theta)/70)%>%flatten_dbl()%>%sd()
+n<-70
+x<-rbernoulli(n,p=(20/70)) 
+theta<-mean(x)
+
+
+# Pasos 2 y 3
+thetaBoot <- function(){
+    # Simular X_1*,...X_N* con distribución N(mu_hat, sigma_hat^2) 
+    x_boot <- rbernoulli(n, p=theta) 
+    # Calcular mu*, sigma* y theta*
+    theta_boot <- mean(x_boot)
+    
+    theta_boot # theta*
+}
+
+sims_boot <- rerun(3000, thetaBoot()) %>% flatten_dbl()
+
+se<-sqrt(1 / 2999 * sum((sims_boot - theta) ^ 2))
+se
+theta-1.96*sd(sims_boot)
+theta+1.96*sd(sims_boot)
+```
+

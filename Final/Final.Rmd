@@ -1,0 +1,835 @@
+---
+title: "Final"
+author: "Abraham Nieto 51556 y Rodigo Cedeño 176576"
+date: "4 de diciembre de 2017"
+output: html_document
+---
+1-2. Inferencia gráfica
+
+La base de datos places (Boyer y Savageau 1984) contiene ratings de varios aspectos de ciudades de EUA. El objetivo de este ejercicio es investigar si las variables en estos datos están asociadas, en particular se considera clima (Climate) y costo de vivienda (HousingCost). Valores bajos en clima implican temperaturas inconvenientes, puede ser mucho calor o mucho frío, mientras que valores altos corresponden a temperaturas más moderadas.
+Por su parte, valores altos en vivienda indican costos altos para una casa familiar simple.
+¿Qué relación esperarías entre las variables? Escribe la hipótesis nula.
+**R = De acuerdo con la definición del problema lo que esperaría es que a mayor valor de las viviendas tengamos un mejor clima es decir una relación positiva (directamente proporcional) entre ambas variables. Contrario a esto, si tenemos un clima malo, el valor de las viviendas deber ser menor.**
+
+**Hipótesis Nula: Existe una relación lineal entre las variables de clima y costo de vivienda **
+
+
+```{r}
+places<-read.table(file='places.csv')
+head(places)
+```
+
+Describe un método gráfico para probar tu hipótesis e implementalo. Genera 9 conjuntos de datos nulos y graficalos junto con los datos reales, escribe el nivel de significancia de la prueba y tus conclusiones. 
+
+**R= Se ajustará un modelo lineal para las variables de clima y costo de vivienda. Posteriormente veremos su relación con las simulaciones. Específicamente utilizaremos "nullabor" junto con ggplot para poder realizar una inferencia gráfica y determinar si se prueba o se rechaza la hipótiesis nula.**
+
+```{r}
+library(nullabor)
+library(dplyr)
+placenull<-places%>%mutate(Climate=Climate+runif(length(Climate),-50,.50),
+                           HousingCost=HousingCost+runif(length(HousingCost),-50,50))
+#%>%select(Climate,HousingCost)
+```
+
+Podemos hacer las simulaciones 
+
+```{r}
+
+library(ggplot2)
+glimpse(placenull)
+place_null <- lineup(null_lm(HousingCost ~ Climate), placenull, n = 10) 
+
+ggplot(place_null, aes(x = Climate, y = HousingCost)) +
+    geom_point(alpha = 0.5, size = 0.8) +facet_wrap(~ .sample, nrow = 2)
+
+```
+
+**Revisando las gráficas existe se puede observar que una de ellas es distinta a las demás a las demás. Con esto podemos decir que no existe una relación ineal entre las variables con una significancia del 90%, ya que visualmente se pueden distinguir cuáles son los datos reales. Este paso se puede repetir varias ocasiones y podemos ver que el resultado es el mismo.**
+
+
+**2.-**Para este ejercicio utilizaremos los datos de un estudio longitudinal de Singer y Willet 2003 (wages). En este estudio se visitó a hombres en edad laboral que habitan en EUA, se visitó a cada sujeto entre 1 y 13 veces, en cada visita se registraron las siguientes mediciones:
+
+id: identificador de sujeto
+hgc: grado de educación más alto completado
+lnw : logaritmo natural del salario
+exper: años de experiencia laboral
+
+El objetivo del ejercicio es estudiar la relación entre salario y experiencia laboral por raza para aquellos sujetos cuyo año máximo de estudios completados es igual a 9, 10 u 11, estos son sujetos que abandonaron sus estudios durante preparatoria. Seguiremos un enfoque no paramétrico que consiste en ajustar un suavizador para cada grupo de raza (blanco, hispano o negro) como se muestra en la siguiente gráfica.
+
+
+
+
+2.1 Preparación de los datos.
+
+```{r}
+wages_t<-read.table(file='wages.csv',sep = ',',header = TRUE)
+head(wages_t)
+```
+
+
+Selecciona los sujetos con grado de estudios completado igual a 9, 10 u 11.
+```{r}
+wages_t<-wages_t%>%filter(hgc>=9 & hgc<=11)
+head(wages_t)
+```
+
+
+Elimina las observaciones donde el logaritmo del salario (lnw) es mayor a 3.5.
+```{r}
+wages_t<-wages_t%>%filter(lnw<3.5)
+```
+
+
+Crea una variable correspondiente a raza, un sujeto es de raza hispana si la variable hispanic toma el valor 1, de raza negra si la variable black toma el valor 1 y de raza blanca si las dos anteriores son cero.
+```{r}
+wages_t<-wages_t%>%mutate(race=ifelse(hispanic==1,'hispanic',ifelse(black==1,'black','white')))
+head(wages_t)
+```
+
+
+Crea un subconjunto de la base de datos de tal manera que tengas el mismo número de sujetos distintos en cada grupo de raza. Nota: habrá el mismo número de sujetos en cada grupo pero el número de observaciones puede diferir pues los sujetos fueron visitados un número distinto de veces.
+
+```{r}
+#Generamos el numero de ids unicos por raza y vamos a seleccionar 100 ids distintos para cada una
+wages_t%>%group_by(race)%>%summarise(count=length(unique(id)))%>%select(race,count)
+#hispanos
+samp_hispanic<-wages_t%>%filter(race=='hispanic')%>%select(id)%>%unique()
+hisp<-sample_n(samp_hispanic,100,replace = FALSE)
+#Black
+samp_black<-wages_t%>%filter(race=='black')%>%select(id)%>%unique()
+black<-sample_n(samp_black,100,replace = FALSE)
+
+#White
+samp_white<-wages_t%>%filter(race=='white')%>%select(id)%>%unique()
+white<-sample_n(samp_white,100,replace = FALSE)
+
+v1<-pull(black,id)
+v2<-pull(hisp,id)
+v3<-pull(white,id)
+
+wages_t<-wages_t%>%filter(id %in% c(v1,v2,v3))
+
+wages_t%>%filter(id %in% c(v1,v2,v3))%>%group_by(race)%>%summarise(count=length(unique(id)))%>%select(race,count)
+
+```
+
+
+2.2 Prueba de hipótesis visual
+
+```{r}
+ggplot(wages_t, aes(x = exper, y = lnw)) +
+  geom_point(alpha = 0.25, size = 2) + 
+  geom_smooth(aes(group = race, color = race), method = "loess", se = FALSE) 
+
+```
+
+El escenario nulo consiste en que no hay diferencia entre las razas. Para generar los datos nulos, la etiqueta de raza de cada sujeto se permuta, es decir, se reasigna la raza de cada sujeto de manera aleatoria (para todas las mediciones de un sujeto dado se reasigna una misma raza). Genera 19 conjuntos de datos nulos y para cada uno ajusta una curva loess siguiendo la instrucción de la gráfica de arriba. Crea una gráfica de paneles donde incluyas los 19 conjuntos nulos y los datos reales, estos últimos estarán escondidos de manera aleatoria.
+```{r}
+
+#Datos nulos
+wage_null<-lineup(null_permute("race"),wages_t, n = 20)
+
+ggplot(wage_null, aes(x = exper, y = lnw)) +
+  geom_point(alpha = 0.25, size = .5) + 
+  geom_smooth(aes(group = race, color = race), method = "loess", se = FALSE)+
+  facet_wrap(~ .sample, nrow = 3,scales = "fixed")
+
+```
+
+
+Realiza la siguiente pregunta a una o más personas que no tomen la clase:
+
+Las siguientes 20 gráficas muestran suavizamientos de log(salarios) por años de experiencia laboral. Una de ellas usa datos reales y las otras 19 son datos nulos, generados bajo el supuesto de que no existe diferencia entre los subgrupos. ¿Cuál es la gráfica más distinta?
+
+Reporta si las personas cuestionadas pudieron distinguir los datos.
+** R = Se realizó esta pregunta a diversas personas en nuestro trabajo y en nuestras casas y realmente la mayoría pudieron distinguir los datos reales de los datos nulos. Siendo objetivo, la diferencia es muy clara debido a que los datos reales sí se distinguen de los nulos; esto se debe a que existe una diferencia real en especial con las personas de raza negra.**
+
+¿Cuál es tu conclusión de la prueba de hipótesis visual? 
+
+**R=se rechaza H0 con un p-value de 0.05, como se mencionó antes, es muy claro que existe diferencia entre los salarios sobre todo para la gente de color, a aprtir de 8 años de experiencia esta diferencia se distinge más.**
+
+
+
+3. Relación entre bootstrap e inferencia bayesiana
+
+Consideremos el caso en que tenemos una única observación xx proveniente de una distribución normal
+
+x∼N(θ,1)
+x∼N(θ,1)
+
+Supongamos ahora que elegimos una distribución inicial Normal
+θ∼N(0,τ)
+θ∼N(0,τ)
+dando lugar a la distribución posterior (como vimos en la tarea)
+
+θ|x∼N(x1+1/τ,11+1/τ)
+θ|x∼N(x1+1/τ,11+1/τ)
+
+Ahora, entre mayor ττ, más se concentra la posterior en el estimador de máxima verosimilitud θ̂ =xθ^=x. En el límite, cuando τ→∞τ→∞ obtenemos una inicial no-informativa (constante) y la distribución posterior
+
+θ|x∼N(x,1)
+θ|x∼N(x,1)
+
+Esta posterior coincide con la distribución de bootstrap paramétrico en que generamos valores x∗x∗ de N(x,1)N(x,1), donde xx es el estimador de máxima verosimilitud.
+
+Lo anterior se cumple debido a que utilizamos un ejemplo Normal pero también se cumple aproximadamente en otros casos, lo que conlleva a una correspondencia entre el bootstrap paramétrico y la inferencia bayesiana. En este caso, la distribución bootstrap representa (aproximadamente) una distribución posterior no-informartiva del parámetro de interés. Mediante la perturbación en los datos el bootstrap aproxima el efecto bayesiano de perturbar los parámetros con la ventaja de ser más simple de implementar (en muchos casos).
+* Los detalles se pueden leer en The Elements of Statistical Learning de Hastie y Tibshirani.
+
+Comparemos los métodos en otro problema con el fin de apreciar la similitud en los procedimientos:
+
+Supongamos x1,...,xn∼N(0,σ2)x1,...,xn∼N(0,σ2), es decir, los datos provienen de una distribución con media cero y varianza desconocida.
+
+En los puntos 3.1 y 3.2 buscamos hacer inferencia del parámetro σ2σ2.
+
+3.1 Bootstrap paramétrico.
+
+Escribe la función de verosimilitud y calcula el estimador de máxima verosimilitud para σ2σ2. Supongamos que observamos los datos x (en la carpeta datos), ¿Cuál es tu estimación de la varianza?
+
+La función de verosimilitud es: 
+$$
+\frac{-n}{2}log(2\pi\sigma^2)-\frac{1}{2\pi\sigma^2}\sum_{i}x_{i}^2
+$$
+el estimador de máxima verosimilitud es:
+$$
+\sigma^2=\frac{1}{n-1}\sum_{i=1}^nx_{i}^2
+$$
+
+
+```{r}
+x<-get(load('x.RData'))
+#varianza
+var(x)
+#con el estimador..
+(1/(length(x)-1))*sum(x**2)
+
+```
+
+
+
+Aproxima el error estándar de la estimación usando bootstrap paramétrico y realiza un histograma de las replicaciones bootstrap.
+
+```{r}
+library(tidyverse)
+n<-150
+s_hat<-(1/(length(x)-1))*sum(x**2)
+s_BP<-function(s){
+  x_b<-rnorm(n,0,sqrt(s))
+  sigma_boot <- (1 / (n-1)) * sum(x_b^ 2) 
+  return(sigma_boot)
+}
+
+s_bp<-rerun(1000,s_BP(s_hat))%>%flatten_dbl()
+
+#error estandar
+sqrt(1 / 999 * sum((s_bp - s_hat) ^ 2))
+
+ggplot(data=NULL,aes(x=s_bp))+geom_histogram(binwidth = 10)
+
+
+```
+
+3.2 Análisis bayesiano
+
+Continuamos con el problema de hacer inferencia de σ2σ2. Comienza especificando una inicial Gamma Inversa, justifica tu elección de los parámetros de la distribución inicial y grafica la función de densidad.
+```{r}
+# 1. simulamos valores porvenientes de una distribución gamma
+x_gamma <- rgamma(length(x), shape = 5, rate = 1)
+# 2. invertimos los valores simulados
+x_igamma <- 1 / x_gamma
+
+library(MCMCpack)
+
+ggplot(data=NULL, aes(x = x_igamma)) +
+  geom_histogram(aes(y = ..density..), binwidth = 0.05, fill = "gray") + 
+  stat_function(fun = dinvgamma, args = list(shape = 5, scale = 1), 
+    color = "red")  
+```
+
+
+Calcula analíticamente la distribución posterior.
+
+Usando el prior como Gamma inversa con $\alpha,\beta$ de parámetros, la verosimilitud como una normal $N~(\mu,\sigma^2)$ tenemos:
+
+$$
+p(\sigma^2|x)=\frac{\beta^\alpha}{\Gamma(\alpha)}\frac{1}{(\sigma^2)^{\alpha+1}}e^{-\frac{\beta}{\sigma^2}}*\frac{1}{(2\pi\sigma^2)^\frac{N}{2}}e^{-\frac{1}{2\sigma^2}\sum_{j=1}^N(x_{j}-\mu)^2}=\frac{\beta^\alpha}{\Gamma(\alpha)}\frac{1}{(\sigma^2)^{\alpha+1}}\frac{1}{(2\pi\sigma^2)^\frac{N}{2}}e^\frac{-(\beta+\frac{1}{2}\sum_{j=1}^N(x_{j}-\mu)^2)}{\sigma^2}=
+$$
+$$
+\frac{\beta^\alpha}{\Gamma(\alpha)(2\pi)^\frac{N}{2}}\frac{1}{(\sigma^2)^{\frac{N}{2}+\alpha+1}}e^\frac{-(\beta+\frac{1}{2}\sum_{j=1}^N(x_{j}-\mu)^2)}{\sigma^2}\approx GI(\frac{N}{2}+\alpha,\beta+\frac{1}{2}\sum_{j=1}^N(x_{j}-\mu)^2)
+$$
+ la posterior se distribuye Gamma invers con los parámetros mostradosarriba.
+
+Realiza un histograma de simulaciones de la distribución posterior y calcula el error estándar de la distribución.
+
+
+```{r}
+#recordar que nuestra media es cero...
+x_gammap <- rgamma(length(x), shape = 5+(length(x)/2), rate = 1+.5*sum(x**2))
+# 2. invertimos los valores simulados
+x_igammap <- 1 / x_gammap
+
+#error estandar...
+sd(x)
+
+ggplot(data=NULL, aes(x = x_igammap)) +
+  geom_histogram(aes(y = ..density..),binwidth = 10, fill = "gray") + 
+  stat_function(fun = dinvgamma, args = list(shape = 5+(length(x)/2), scale = 1+.5*sum(x**2)), 
+    color = "red")
+```
+
+
+Ahora elige una inicial uniforme σ2∼U(0.1,300)σ2∼U(0.1,300) y utiliza JAGS (la función dunif indica una distribución uniforme) para obtener una muestra de simulaciones de la distribución posterior, recuerda que en JAGS la distribución Normal está parametrizada en términos de la precisión ν=1/σ2ν=1/σ2. Realiza un histograma y calcula el error estándar de la distribución, compara tus resultados con los obtenidos en los ejercicios anteriores.
+
+```{r}
+library(rjags)
+#uniforme
+ model_string <-   'model {
+    for (i in 1:n){
+      X[i] ~ dnorm(mu, tau)
+    }
+    
+    tau <- pow(sigma2, -1)
+    sigma2 ~ dunif(0.1, 300)
+  }
+'
+
+ model <- jags.model(textConnection(model_string), 
+                     data = list(X=x,n=150,mu=0.0))
+```
+```{r}
+library(R2jags) 
+
+update(model, 1000, progress.bar="none")
+
+samp <- coda.samples(model, 
+        variable.names=c("tau","sigma2"), 
+        n.iter=2000, progress.bar="none")
+
+summary(samp)
+
+plot(samp)
+
+#error estandar es 16.25 aprox se parece al de bootstrp mas que al de la gamma inversa.
+
+```
+
+
+3.3 Supongamos que ahora buscamos hacer inferencia del parámetro τ=log(σ), ¿cuál es el estimador de máxima verosimilitud?
+$$
+\sigma^2=\frac{1}{n-1}\sum_{i=1}^nx_{i}^2=>log(\sigma)=log{\sqrt{\frac{1}{n-1}\sum_{i=1}^nx_{i}^2}}
+$$
+
+
+Utiliza bootstrap paramétrico para generar un intervalo de confianza del 95% para el parámetro ττ y realiza un histograma de las replicaciones bootstrap.
+
+```{r}
+n<-150
+tau_hat<-(1/(length(x)-1))*sum(x**2)
+tau_BP<-function(t){
+  x_b<-rnorm(n,0,sqrt(t))
+  tau_boot <- (1/(length(x)-1))*sum(x_b**2)
+  tt<-log(sqrt(tau_boot))
+  return(tt)
+}
+
+tau_bp<-rerun(1000,tau_BP(tau_hat))%>%flatten_dbl()
+
+#error estandar
+sqrt(1 / 999 * sum((tau_bp - log(sqrt(tau_hat))) ^ 2))
+
+#intervalo de confianza
+bp_inf <- quantile(tau_bp, 0.025)
+bp_sup <- quantile(tau_bp, 0.975)
+#inf
+bp_inf
+#sup
+bp_sup 
+ggplot(data=NULL,aes(x=tau_bp))+geom_histogram(binwidth = .03)
+
+```
+
+
+Ahora volvamos a inferencia bayesiana, calcula un intervalo de confianza para ττ y un histograma de la distribución posterior de ττ utilizando la inicial uniforme (para σ2σ2).
+
+```{r}
+#uniforme
+ model_log <-   'model {
+    for (i in 1:n){
+      X[i] ~ dnorm(mu, tau2)
+    }
+    
+    tau2<-pow(sigma2,-1)
+    sigma2 ~ dunif(0.1, 300)
+    
+  }
+'
+
+ modelog <- jags.model(textConnection(model_log), 
+                     data = list(X=x,n=150,mu=0.0))
+
+```
+
+```{r}
+update(modelog, 1000, progress.bar="none")
+
+samplog <- coda.samples(modelog, 
+        variable.names=c("tau2","sigma2"), 
+        n.iter=2000, progress.bar="none")
+
+summary(samplog)
+
+plot(samplog[,1])
+```
+Sacamos ahora el logaritmo de $\sigma^2$
+
+```{r} 
+#log(sqrt(as.numeric(samplog[i,1])))
+w<-rep(0,2000)
+for(i in 1:2000){
+w[i]<-log(sqrt(as.numeric(samplog[i,1])))
+}
+
+#Intevalo de cfza.
+w_inf <- quantile(w, 0.025)
+w_sup <- quantile(w, 0.975)
+#inf
+w_inf
+#sup
+w_sup 
+
+ggplot(data=NULL,aes(x=w))+geom_histogram(binwidth = .03)
+```
+
+
+
+
+
+4. Metrópolis
+
+En la tarea de Análisis Bayesiano (respuestas aquí programaste un algoritmo de Metropolis para el caso Normal con varianza conocida. En el ejercicio de la tarea los saltos se proponían de acuerdo a una distribución normal: N(0, 5). Para este ejercicio modifica el código con el fin de calcular el porcentaje de valores rechazados y considera las siguientes distribuciones propuesta: a) N(0,0.2)N(0,0.2), b) N(0,5)N(0,5) y c) N(0,20)N(0,20).
+```{r}
+library(tidyverse)
+
+prior <- function(mu = 100, tau = 10){
+  function(theta){
+    dnorm(theta, mu, tau)
+  }
+}
+mu <- 150
+tau <- 15
+mi_prior <- prior(mu, tau)
+
+# S: sum x_i, S2: sum x_i^2, N: número obs., sigma: desviación estándar (conocida)
+S <- 13000
+S2 <- 1700000
+N <- 100
+#sigma2 <- S2 / N - (S / N) ^ 2
+sigma <- 20
+  
+likeNorm <- function(S, S2, N, sigma = 20){
+  # quitamos constantes
+  sigma2 <-  sigma ^ 2
+  function(theta){
+    exp(-1 / (2 * sigma2) * (S2 - 2 * theta * S + 
+        N * theta ^ 2))
+  }
+}
+
+mi_like <- likeNorm(S = S, S2 = S2, N = N, sigma = sigma)
+mi_like(130)
+#> [1] 3.726653e-06
+
+postRelProb <- function(theta){
+  mi_like(theta) * mi_prior(theta)
+}
+
+
+```
+
+```{r}
+
+# para cada paso decidimos el movimiento de acuerdo a la siguiente función
+caminaAleat <- function(theta, sd_prop = 5){ # theta: valor actual
+  salto_prop <- rnorm(n = 1, sd = sd_prop) # salto propuesto
+  theta_prop <- theta + salto_prop # theta propuesta
+  u <- runif(1) 
+  p_move = min(postRelProb(theta_prop) / postRelProb(theta), 1) # prob mover
+  if(p_move  > u){
+    return(theta_prop) # aceptar valor propuesto
+  }
+  else{
+    return(theta) # rechazar
+  }
+}
+
+```
+
+Rechazos para N(0,0.2)
+
+```{r}
+
+pasos <- 6000
+camino <- numeric(pasos) # vector que guardará las simulaciones
+camino[1] <- 90 # valor inicial
+
+rechazo = 0
+# Generamos la caminata aleatoria
+for (j in 2:pasos){
+  camino[j] <- caminaAleat(camino[j - 1],sd_prop = .2)
+  rechazo <- rechazo + 1 * (camino[j] == camino[j - 1]) 
+}
+
+rechazos1<-rechazo / pasos
+#rechazos
+rechazos1
+
+caminata1 <- data.frame(pasos = 1:pasos, theta = camino)
+```
+
+Rechazos para N(0,5)
+```{r}
+pasos <- 6000
+camino <- numeric(pasos) # vector que guardará las simulaciones
+camino[1] <- 90 # valor inicial
+
+rechazo = 0
+# Generamos la caminata aleatoria
+for (j in 2:pasos){
+  camino[j] <- caminaAleat(camino[j - 1],sd_prop = 5)
+  rechazo <- rechazo + 1 * (camino[j] == camino[j - 1]) 
+}
+
+rechazos2<-rechazo / pasos
+#rechazos
+rechazos2
+
+caminata2 <- data.frame(pasos = 1:pasos, theta = camino)
+```
+
+Para N(0,20) 
+```{r}
+pasos <- 6000
+camino <- numeric(pasos) # vector que guardará las simulaciones
+camino[1] <- 90 # valor inicial
+
+rechazo = 0
+# Generamos la caminata aleatoria
+for (j in 2:pasos){
+  camino[j] <- caminaAleat(camino[j - 1],sd_prop = 20)
+  rechazo <- rechazo + 1 * (camino[j] == camino[j - 1]) 
+}
+
+rechazos3<-rechazo / pasos
+#rechazos
+rechazos3
+
+caminata3 <- data.frame(pasos = 1:pasos, theta = camino)
+```
+
+
+4.1 Genera valores de la distribución posterior usando cada una de las distribuciones propuesta, utiliza la misma distribución inicial y datos observados que utilizaste en la tarea (realiza 6000 pasos). Grafica los primeros 2000 pasos de la cadena. Comenta acerca de las similitudes/diferencias entre las gráficas.
+
+Para N(0,.2)
+
+```{r}
+ggplot(caminata1[1:2000, ], aes(x = pasos, y = theta)) +
+  geom_point(size = 0.8) +
+  geom_path(alpha = 0.3) 
+
+```
+
+Para N(0,5)
+
+```{r}
+ggplot(caminata2[1:2000, ], aes(x = pasos, y = theta)) +
+  geom_point(size = 0.8) +
+  geom_path(alpha = 0.3) 
+
+```
+
+Para N(0,20)
+```{r}
+ggplot(caminata3[1:2000, ], aes(x = pasos, y = theta)) +
+  geom_point(size = 0.8) +
+  geom_path(alpha = 0.3) 
+
+```
+
+**Podemos observar que las gráficas para N(0,5) y N(0,20) son muy parecidas en el sentido que ambos toman pocos pasos de calentamiento es decir convergen rápido, no sucede lo mismo cuando usamo la inicial N(0,0.2) que parece no converger esto es debido a que los saltos son mucho más pequeños y lo contrario con el caso N(0,20) donde son mucho más grandes.**
+
+
+4.2 Calcula el porcentaje de valores rechazados, compara los resultados y explica a que se deben las diferencias.
+```{r}
+#Rechazos N(0,.2)
+rechazos1
+#Rechazos N(0,5)
+rechazos2
+#Rechazos N(0,20)
+rechazos3
+```
+
+**Las diferencias son pincipalmente a que mientras más grandes son los pasos más repetimos el valor de theta de un paso a otro (por lo que existen más rechazos), además el hecho de elegir una varianza grande nos da distribuciones iniciales poco informativas.**
+
+
+
+
+4.3 Elimina las primeras 1000 simulaciones y genera histogramas de la distribución posterior para cada caso, ¿que distribución propuesta nos da la representación más cercana a la verdadera distribución posterior? (compara las simulaciones de los tres escenarios de distribución propuesta con la distribución posterior calculada de manera analítica)
+
+Media y varianza de la distribución analítica
+```{r}
+sigma ^ 2 * mu / (sigma ^ 2 + N * tau ^ 2) + tau ^ 2 * S / (sigma^2  + N * tau^2) # media
+#> [1] 130.3493
+sigma ^ 2 * tau ^ 2 / (sigma ^ 2 + N * tau ^ 2)
+#> [1] 3.930131
+```
+
+Distribución de N(0,.2)
+
+```{r}
+ggplot(filter(caminata1, pasos > 1000), aes(x = theta)) +
+  geom_histogram(aes(y = ..density..), binwidth = 0.8) + 
+  stat_function(fun = dnorm, args = list(mean = 130.3, sd = 1.98), color = "red")
+```
+
+
+Distribución de N(0,5)
+
+```{r}
+ggplot(filter(caminata2, pasos > 1000), aes(x = theta)) +
+  geom_histogram(aes(y = ..density..), binwidth = 0.8) + 
+  stat_function(fun = dnorm, args = list(mean = 130.3, sd = 1.98), color = "red")
+```
+
+Distribución de N(0,20)
+
+```{r}
+ggplot(filter(caminata3, pasos > 1000), aes(x = theta)) +
+  geom_histogram(aes(y = ..density..), binwidth = 0.8) + 
+  stat_function(fun = dnorm, args = list(mean = 130.3, sd = 1.98), color = "red")
+```
+
+**La distribución que más se aproxima a la distribución posterior es la N(0,5), debido a que tenemos un valor de 130.3493 calculando de manera analítica.**
+
+4.4 Realiza un histograma de la distribución predictiva posterior, ¿cuál sería tu predicción para un nuevo valor?, calcula un intervalo del 95% de probabilidad para la predicción.
+
+```{r}
+#la media y la varianza de la posterior para N(0,5) es
+caminataf<-filter(caminata2,pasos>1000)
+mu<-mean(caminataf$theta)
+mu
+sig<-var(caminataf$theta)
+sig
+#la posterior se distribuye normal con media mu y varianza sig
+caminataf$sims<-rnorm(1:nrow(caminataf),mu,sig)
+
+ggplot(caminataf, aes(x = sims)) + 
+  geom_histogram(fill = "gray") +
+  geom_vline(aes(xintercept = mean(sims)), color = "red")
+
+#intervalo de confianza
+inf <- quantile(caminataf$sims, 0.025)
+sup <- quantile(caminataf$sims, 0.975)
+#inf
+inf
+#sup
+sup 
+
+
+```
+
+**La predicción sería entre 122 y 138 con una confianza del 95%)**
+
+5. Modelos jerárquicos
+
+En este ejercicio definirás un modelo jerárquico para la incidencia de tumores en grupos de conejos a los que se suministró una medicina. Se realizaron 71 experimentos distintos utilizando la misma medicina.
+
+Considerando que cada conejo proviene de un experimento distinto, se desea estudiar θjθj, la probabilidad de desarrollar un tumor en el jésimo grupo, este parámetro variará de grupo a grupo.
+Denotaremos yijyij la observación en el i-ésimo conejo perteneciente al j-ésimo experimento, yijyij puede tomar dos valores: 1 indicando que el conejo desarrolló tumor y 0 en el caso contrario.
+
+yij∼Bernoulli(θj)
+yij∼Bernoulli(θj)
+
+Adicionalmente se desea estimar el efecto medio de la medicina a lo largo de los grupos μμ, por lo que utilizaremos un modelo jerárquico como sigue:
+θj∼Beta(a,b)
+θj∼Beta(a,b)
+
+donde
+
+a=μκ
+a=μκ
+b=(1−μ)κ
+b=(1−μ)κ
+
+Finalmente asignamos una distribución a los hiperparámetros μμ y κκ,
+
+μ∼Beta(Aμ,Bμ)
+μ∼Beta(Aμ,Bμ)
+
+κ∼Gamma(Sκ,Rκ)
+
+5.1 Si piensas en este problema como un lanzamiento de monedas, ¿a qué corresponden las monedas y los lanzamientos?
+
+**Pensando en este problema como un lanzamiento de monedas; las monedas son los 71 experimentos distintos y el número de lanzamientos son los 1810 conejos con los que se experimenta**
+
+
+5.2 La base de datos rabbits contiene las observaciones de los 71 experimentos, cada renglón corresponde a una observación.
+Utiliza JAGS o Stan para ajustar un modelo jerárquico como el descrito arriba y usando una inicial Beta(1,1)Beta(1,1) y una Gamma(1,0.1)Gamma(1,0.1) para μμ y κκ respectivamente.
+
+Realiza un histograma de la distribución posterior de μμ, κκ. Comenta tus resultados.
+
+```{r}
+rabbits<-get(load('rabbits.RData'))
+modelo_1.bugs <-
+'
+model{
+    for(i in 1:N){
+        x[i] ~ dbern(theta[moneda[i]])
+    }
+    # inicial
+    for(m in 1:M){
+
+        theta[m] ~ dbeta(a,b)
+    }
+    a<-mu*k
+    b<-(1-mu)*k
+    mu~dbeta(1,1)
+    k~dgamma(1,0.1)
+}
+'
+cat(modelo_1.bugs, file = 'modelo_1.bugs')
+
+```
+
+```{r}
+#data_rabbits<-list(N=nrow(rabbits),x=rabbits$tumor,M=n_distinct(rabbits$experiment),
+#                   moneda = rabbits$experiment)
+
+
+inits_rabbits<- function(){
+    list(
+        mu = rbeta(1,1,1),
+        k=rgamma(1,1,.1))
+}
+
+parameters_rabbits <- c("theta", "mu", "k")
+
+jags_fit <- jags(
+  model.file = "modelo_1.bugs",    # modelo de JAGS
+  data = list(N=nrow(rabbits),x=rabbits$tumor,M=n_distinct(rabbits$experiment),
+                  moneda = rabbits$experiment), 
+  inits= inits_rabbits, # lista con los datos
+  parameters.to.save = parameters_rabbits,   # parámetros por guardar
+  n.chains = 3,   # número de cadenas
+  n.iter = 10000,    # número de pasos
+  n.burnin = 1000,   # calentamiento de la cadena
+  n.thin = 1 # para poder conservar las 9000 simulaciones
+  )
+```
+```{r}
+jags_fit
+#jags_fit$BUGSoutput$sims.matrix
+
+ggplot(NULL, aes(x =jags_fit$BUGSoutput$sims.matrix[,2] )) + 
+    geom_histogram(alpha = 0.5) +xlab('k')
+
+ggplot(NULL, aes(x =jags_fit$BUGSoutput$sims.matrix[,3] )) + 
+    geom_histogram(alpha = 0.5) +xlab('mu')
+
+```
+
+
+
+
+
+5.3 Realiza una gráfica de boxplots con las simulaciones de cada parámetro θjθj, la gráfica será similar a la realizda en la clase de modelos probabilísticos (clase 9). Comenta tus resultados
+
+```{r}
+X<-jags_fit$BUGSoutput$sims.matrix[,c(4:74)]
+nx<-data.frame(X)
+nx$id<-c(1:nrow(nx))
+
+nx%>%gather(parametro,valu,-id)%>%ggplot(aes(y=valu,x=reorder(parametro,valu)))+geom_boxplot()+
+  geom_hline(color = "red", yintercept = 0.165)+xlab(expression(theta[j]))
+
+sal<-nx%>%gather(parametro,valu,-id)%>%group_by(parametro)%>%summarise(med=median(valu))
+median(sal$med)
+
+```
+**En esta gráfica lo que podemos observar, es que la probabilidad de desarrollar un tumores menor al 17%, esto al menos en más de la mitad de los grupos.**
+
+
+
+5.4 Ajusta un nuevo modelo utilizando una iniciales Beta(10,10)Beta(10,10) y Gamma(0.51,0.01)Gamma(0.51,0.01) para μμ y κκ (lo demás quedará igual). Realiza una gráfica con las medias posteriores de los parámetros θjθj bajo los dos escenarios de distribuciones iniciales. En el eje horizontal grafica las medias posteriores del modelo ajustado en 6.2 y en el eje vertical las medias posteriores del modelo modelo en 6.4. ¿Cómo se comparan? ¿A qué se deben las diferencias?
+
+```{r}
+
+modelo_2.bugs <-
+'
+model{
+    for(i in 1:N){
+        x[i] ~ dbern(theta[moneda[i]])
+    }
+    # inicial
+    for(m in 1:M){
+
+        theta[m] ~ dbeta(a,b)
+    }
+    a<-mu*k
+    b<-(1-mu)*k
+    mu~dbeta(10,10)
+    k~dgamma(.51,0.01)
+}
+'
+cat(modelo_2.bugs, file = 'modelo_2.bugs')
+
+```
+
+```{r}
+
+inits_rabbits2<- function(){
+    list(
+        mu = rbeta(1,10,10),
+        k=rgamma(1,.51,.01))
+}
+
+parameters_rabbits2 <- c("theta", "mu", "k")
+
+jags_fit2 <- jags(
+  model.file = "modelo_2.bugs",    # modelo de JAGS
+  data = list(N=nrow(rabbits),x=rabbits$tumor,M=n_distinct(rabbits$experiment),
+                  moneda = rabbits$experiment), 
+  inits= inits_rabbits2, # lista con los datos
+  parameters.to.save = parameters_rabbits2,   # parámetros por guardar
+  n.chains = 3,   # número de cadenas
+  n.iter = 10000,    # número de pasos
+  n.burnin = 1000,   # calentamiento de la cadena
+  n.thin = 1 # para poder conservar las 9000 simulaciones
+  )
+```
+
+Obtenemos la matriz de parametros del modelo 2 rbeta(1,10,10) k=rgamma(1,.51,.01) posterior calcular la proba promedio de cada $\theta_{j}$ del segndo y primer modelo...
+
+```{r}
+#jags_fit2$BUGSoutput$sims.matrix
+X2<-jags_fit2$BUGSoutput$sims.matrix[,c(4:74)]
+nx2<-data.frame(X2)
+nx2$id<-c(1:nrow(nx2))
+
+
+#medias del  2do modelo
+sal2<-nx2%>%gather(parametro,valu,-id)%>%group_by(parametro)%>%summarise(med=mean(valu))
+#sal2
+#medias del primer modelo
+sal1<-nx%>%gather(parametro,valu,-id)%>%group_by(parametro)%>%summarise(med=mean(valu))
+#sal1
+
+sals<-merge(sal1,sal2,by="parametro")
+head(sals)
+
+ggplot(data=sals,aes(x=med.x,y=med.y))+geom_point()+xlab(expression(paste(theta[j],'2')))+
+  ylab(expression(paste(theta[j],'1')))
+
+```
+
+**Comparando ambas medias en la gráfica que se encuentra arriba, es claro que existe una relación lineal entre las medias de los parámetros estimados con ambos modelos**
+
+

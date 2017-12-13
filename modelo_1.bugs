@@ -1,0 +1,10 @@
+
+model{
+    for(i in 1:N){
+        x[i] ~ dbern(theta[coin[i]])
+    }
+    # inicial
+    for(m in 1:nCoins){
+        theta[m] ~ dbeta(3, 3)
+    }
+}

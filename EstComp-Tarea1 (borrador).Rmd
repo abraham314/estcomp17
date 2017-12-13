@@ -1,0 +1,67 @@
+---
+title: "EstComp-Tarea1"
+author: "Abraham Nieto 51556"
+date: "16 de agosto de 2017"
+output: html_document
+---
+```{r}
+library(gapminder)
+gapminder
+```
+
+```{r}
+library(ggplot2) 
+ggplot(data=gapminder,aes(x=factor(year),y=lifeExp))+geom_boxplot()+facet_wrap(~continent)
+```
+Al graficar la distribución anual de la expectativa de vida separada por continentes a lo largo de los años esperaríamos que este dato fuera  creciente dado que es la tendencia general, lo interesante es ver por ejmplo el caso de Africa donde pareciera que la expectativa de vida esta estancada desde hace 25 años lo cual suena lógico dado que Africa es el continente más subdesarrollado y habría que preguntarse que paises contribuyen mayormente a este efecto.
+A pesar de la tendencia ha sido creciente en el resto de los continentes podemos ver que en Europa desde hace 20 años prácticamente han dejado de haber casos aislados de paises con menor expectativa de vida caso contrario a América y Asia donde en los más recienes años han habido paises con expectativas menores al resto.
+
+```{r}
+ggplot(data=gapminder)+geom_boxplot(aes(x=as.character(year),y=gdpPercap))
+```
+
+```{r}
+p<-ggplot(data=gapminder) 
+p+geom_histogram(aes(x=gdpPercap))+facet_wrap(~continent)
+```
+
+```{r}
+p+geom_boxplot(aes(x=continent,y=gdpPercap)) 
+p+geom_boxplot(aes(x=continent,y=lifeExp)) 
+p+geom_boxplot(aes(x=continent,y=log(pop)))
+```
+
+```{r}
+p+geom_point(aes(y=lifeExp,x=gdpPercap))+
+  facet_grid(factor(year)~continent)+geom_smooth(aes(y=lifeExp,x=gdpPercap)
+                                                                            ) 
+
+```
+
+```{r}
+
+library(Hmisc)
+
+gapminder$popx<-gapminder$pop/1000000
+gapminder$pcap <- cut2(gapminder$popx, g = 4) 
+gapminder$pyear <- cut2(gapminder$year, g = 4) 
+ggplot(data=gapminder,aes(x=lifeExp,y=log(gdpPercap)))+geom_point(aes(color=pyear))+geom_smooth(span=3)+
+  facet_grid(pcap~continent)
+```
+
+
+Relación expectativa de vida vs. pib per cápita.-en este sentido se hizo una partición en cuártiles del tamaño de la población  y se colorea por bloques de años, es interesante observar que la relación entre estas variables es ineal y creciente es decir a mayor esperanza de vida mayor pib per cápita, podemos ver que esto es distinto si lo observamos por continente y tamaño de población delos países en distintos años, por ejemplo dentro de grupo de paises más poblados la relación de pib y esperanza de vida es exponencial, excepto en los paises africanos que es lineal y ligeramente a la baja en los últimos 10 años, por otro lado el cuártil de más población en Asia muestra la relación de crecimiento exponencial más marcado que cualquier otro rubro y sobretodo en los ultimos años, china está en este grupo se intuye su influencia.
+Loa paises menos poblados en Africa no mejoran la relaión entre variables con respecto a los mas poblados por tanto el tamaño de población pareciera no influir. 
+También  podemos observar que las relaciones en los paises Europeos son muy parecidas(lineales) independientemente del tamaño de poblaciones, incluso los paises con más población tienen una relación más exponencial entre variables que el resto además con décadas distintas.
+El caso de América es muy parecido al Europeo los paises más poblados cumplen más claro ue a mayor esperanza de vidamayor pib pc y pareciera que esto ha sido así independientemente de los años, para el caso de paises de entre 7 y 20 millones de habitantes en América pareciera que no hay una relación o es de muy poco crecimiento entre las variables excepto por las útimas 2 décadas, como en Africa en el mismo cuártil de población.
+
+
+```{r}
+Mex<-subset(gapminder,gapminder$country=="Mexico") 
+Mex$exp<-cut2(Mex$lifeExp,g=4)
+Mex
+ggplot(data=Mex)+geom_line(aes(x=year,y=gdpPercap))+ 
+  geom_point(aes(x=year,y=gdpPercap,color=exp,size=3))+ggtitle('PIB per capita México')
+```
+1992
+Para el caso de México podemos observar que el pib per cápita entre los años 1987-1992 tuvo una importante baja con respecto a los 5 años anteriores y hasta el año 92 e recupero casi el nivel de 1982 es decir hubo un estancamieto en 10 años en estos ños la esperanza de vida estaba entre los 67 a 74 años, factor que cambio hasta 1997.

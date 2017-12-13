@@ -1,0 +1,206 @@
+---
+title: 'EstComp-Tarea09'
+Author: 'Abraham Nieto 51556'
+output: html_document
+---
+```{r options, echo = FALSE, message=FALSE, error=TRUE, warning=FALSE}
+knitr::opts_chunk$set(
+    comment = "#>",
+    collapse = TRUE, 
+    fig.width=3, fig.height=3
+)
+comma <- function(x) format(x, digits = 2, big.mark = ",")
+options(digits=3)
+
+library(tidyverse)
+library(gridExtra)
+theme_set(theme_minimal())
+```
+Los datos beauty consisten en evaluaciones de estudiantes a profesores, los 
+estudiantes calificaron belleza y calidad de enseñanza para distintos cursos en 
+la Universidad de Texas. Las evaluaciones de curso se realizaron al final del 
+semestre y tiempo después 6 estudiantes que no llevaron el curso realizaron los 
+juicios de belleza. Ajusta un modelo de regresión lineal usando las variables 
+_edad_ (age), _belleza_ (btystdave), _sexo_ (female) e _inglés no es primera 
+lengua_ (nonenglish) para predecir las evaluaciones del curso (courseevaluation)
+.
+
+```{r}
+beauty <- read.csv("beauty.csv")
+fit_score <- lm(courseevaluation ~ age + btystdave + female + nonenglish, 
+                data = beauty)
+```
+
+
+1. La instructora A es una mujer de 50 años, el inglés es su primera lengua y 
+tiene un puntaje de belleza de -1. El instructor B es un hombre de 60 años, 
+su primera lengua es el inglés y tiene un puntaje de belleza de -0.5. Simula
+1000 generaciones de la evaluación del curso de estos dos instructores. En 
+tus simulaciones debes incorporar la incertidumbre en los parámetros y en la
+predicción. 
+
+Para hacer las simulaciones necesitarás la distribución del vector de 
+coeficientes $\beta$, este es normal con media:
+```{r}
+coef(fit_score)
+```
+y matriz de varianzas y covarianzas $\sigma^2 V$, donde $V$ es: 
+```{r}
+summary(fit_score)$cov.unscaled
+```
+
+y $\sigma$ se calcula como $\sigma=\hat{\sigma}\sqrt{(df)/X}$, donde X es una 
+generación de una distribución $\chi ^2$ con $df$ (458) grados de libertad
+$\hat{\sigma}$ es:
+
+```{r}
+summary(fit_score)$sigma
+```
+
+y $df$ (los grados de libertad) se obtienen:
+
+```{r}
+summary(fit_score)$df[2]
+```
+```{r}
+library(dplyr)
+#instructora A
+instA<-beauty%>%filter(age==50 & nonenglish==0 & female==1 & round(btystdave)==-1)
+instB<-beauty%>%filter(age==60 & nonenglish==0 & female==0 & round(btystdave,digits=1)==-0.5) 
+instA
+```
+**Ejercicio 1**
+Una vez que obtengas una simulación del vector $\beta$ generas simulaciones 
+para los profesores usando el modelo de regresión lineal y las imulaciones
+de los parámetros.
+
+
++ Realiza un histograma de la diferencia entre la evaluación del curso
+para A y B. 
+
+
+```{r}
+
+#simulamos
+sig<-summary(fit_score)$sigma
+SIG<-summary(fit_score)$cov.unscaled
+simula_parametros <- function(){
+    # empezamos simulando sigma
+    sigma <- sig * sqrt((458) / rchisq(1, 458))
+    # la usamos para simular betas-0.002585912  0.141031893 -0.210304324 -0.332233708 
+    beta <- MASS::mvrnorm(1, mu = c(4.244464824,-0.0025859,0.141031893,-0.210304324,-0.332233708), 
+        # Sigma
+        Sigma = sig ^ 2 * SIG)
+    # Simulamos las observaciones
+    list(sigma = sigma, beta = beta)
+}
+
+sims_parametros <- rerun(1000, simula_parametros()) 
+
+# simulamos los puntajes
+simula_puntajes <- function(beta, sigma, A = 7, B =8){
+    vector_mu <- c(rep(beta[1] + beta[2]+beta[3] + beta[4], A), rep(beta[1] + beta[2]+beta[3], B)) # beta_0 + beta_1*X1+beta_2*X2 + beta_3*X3+beta_4*X4
+    obs = rnorm(15, vector_mu, sigma)
+}
+
+sims_puntajes <- map(sims_parametros, ~simula_puntajes(beta = .[["beta"]], sigma = .[["sigma"]]))
+medias_incert <- sims_puntajes %>% map_dbl(mean)
+
+#hacemos u vector de diferencia de los promedios de las calificaciones...
+cx<-rep(0,1000)
+
+for (i in 1:1000){
+cx[i]<-mean(sims_puntajes[[i]][1:8])-mean(sims_puntajes[[i]][9:15])
+#sims_puntajes
+}
+
+#Histograma de difrencias de A y B
+ggplot(data=NULL,aes(x=cx))+geom_histogram(binwidth =.05)
+
+```
+
+
++ ¿Cuál es la probabilidad de que A obtenga una calificación mayor?
+```{r}
+#cx es el vector de diferencias de calificaciones si son negativos entonces A es mejor calificado..
+cf<-function(x){
+  if(x<0){
+    return(1)
+  }
+  else{
+    return(0)
+  }
+}
+
+f<-rep(0,1000)
+for(i in 1:1000){
+  f[i]<-cf(cx[i])
+}
+
+#proba de que A salga mejor..
+mean(f)
+
+```
+
+
+2. En el inciso anterior obtienes simulaciones de la distribución conjunta
+$p(\tilde{y},\beta,\sigma^2)$ donde $\beta$ es el vector de coeficientes de 
+la regresión lineal. Para este ejercicio nos vamos a enfocar en el coeficiente
+de belleza ($\beta_3$), realiza 6000 simulaciones del modelo (como en el inciso 
+anterior) y guarda las realizaciones de $\beta_3$. 
+
+```{r}
+
+#simulamos
+sig<-summary(fit_score)$sigma
+SIG<-summary(fit_score)$cov.unscaled
+simula_parametros <- function(){
+    # empezamos simulando sigma
+    sigma <- sig * sqrt((458) / rchisq(1, 458))
+    # la usamos para simular betas-0.002585912  0.141031893 -0.210304324 -0.332233708 
+    beta <- MASS::mvrnorm(1, mu = c(4.244464824,-0.0025859,0.141031893,-0.210304324,-0.332233708), 
+        # Sigma
+        Sigma = sig ^ 2 * SIG)
+    # Simulamos las observaciones
+    list(sigma = sigma, beta = beta)
+}
+
+sims_parametros <- rerun(6000, simula_parametros()) 
+b3<-rep(0,6000)
+for(i in 1:6000){
+b3[i]<-sims_parametros[[i]]$beta[3]
+}
+
+
+```
+
+
++ Genera un histograma con las simulaciones de $\beta_3$.
+
+```{r}
+#graficando b3...
+ggplot(data=NULL,aes(x=b3))+geom_histogram(binwidth = .005)
+```
+
+
++ Calcula la media y desviación estándar de las simulaciones y comparalas con la 
+estimación y desviación estándar del coeficiente obtenidas usando summary.
+
+```{r}
+#media b3
+mean(b3)
+#desv b3
+sd(b3)
+```
+
+Comaparando con el summary del original enemos que 
+```{r}
+#media
+coef(fit_score)[3]
+#desviacion...
+summary(fit_score)$cov.unscaled[3,3]
+```
+
+la media coincide con el coeficiente del summary pero la desviacion no...
+
+

@@ -1,0 +1,84 @@
+---
+title: "EstComp-Tarea3"
+author: "Abraham Nieto 51556"
+date: "31 de agosto de 2017"
+output: html_document
+---
+```{r}
+library(tidyverse)
+knitr::opts_chunk$set(
+  comment = "#>",
+  collapse = TRUE,
+  fig.align = "center"
+)
+comma <- function(x) format(x, digits = 2, big.mark = ",")
+theme_set(theme_minimal())
+```
+
+
+```{r}
+cred<- read_delim("/home/abraham/multivsamp.csv", ";", 
+  escape_double = FALSE, trim_ws = TRUE)
+cred
+```
+
+```{r}
+library(Amelia)
+cmult<-cred[sapply(cred, function(x) is.character(x))]
+missmap(cmult, main="Missings", 
+        col=c("yellow", "black"), legend=FALSE) 
+```
+```{r}
+library(Amelia)
+cmult<-cred[sapply(cred, function(x) is.numeric(x))]
+missmap(cmult, main="Missings", 
+        col=c("yellow", "black"), legend=FALSE) 
+```
+
+```{r}
+datana<-is.na(cred)
+cred[datana]<-0 
+cred
+```
+```{r}
+library(ggplot2) 
+ggplot(data=cred)+geom_point(aes(x=factor(contrata),y=log(abs(TO_NECESIDAD_FINAN_CAP_3M+1))))+facet_wrap(~TP_SEGMENTO_FINAL2)
+```
+
+```{r}
+ggplot(data=cred)+geom_point(aes(x=factor(contrata),y=NU_REGULARIDAD_TDC_ULT_6M))+facet_wrap(~TP_SEGMENTO_FINAL2)
+```
+```{r}
+ggplot(data=cred)+geom_boxplot(aes(x=CD_SEXO,y=log(IM_MAX_SDO_MEDIO_12M+1),color=factor(contrata)))
+```
+```{r}
+credc<-cred%>%filter(contrata==1) 
+ggplot(data=credc)+geom_boxplot(aes(x=CD_SEXO,y=NU_VINC_BANCOMER))
+```
+```{r}
+ggplot(data=cred)+geom_boxplot(aes(x=TP_NIVEL_IR_AJUSTADO,y=NU_REGULARIDAD_TDC_ULT_6M,color=factor(contrata)))
+```
+
+```{r}
+
+ggplot(data=cred)+geom_boxplot(aes(x=factor(contrata),y=log(TO_IR_AJUSTADO+1)))
+```
+```{r}
+ggplot(data=cred,aes(x=TP_NIVEL_IR_AJUSTADO))+geom_bar(aes(y = ..count../sum(..count..)))+labs(y='percent') 
+ggplot(data=credc,aes(x=TP_NIVEL_IR_AJUSTADO,fill=CD_SEXO))+geom_bar(aes(y = ..count../sum(..count..)))+labs(y='percent')
+```
+
+```{r}
+ggplot(data=cred)+geom_boxplot(aes(x=factor(contrata),y=log(abs(IM_PROM_IM_CARGOS_6M)+1)))+facet_wrap(~TP_NIVEL_IR_AJUSTADO)
+```
+```{r} 
+library(Hmisc)
+cred5<-cred%>%filter(TP_NIVEL_IR_AJUSTADO=='5_RENTA_MUY_ALTA')
+cred5$gvinc<-cut2(cred5$NU_VINC_COGNODATA,g=4)
+ggplot(data=cred5,aes(x=factor(contrata),y=log(abs(IM_PROM_GASTOS_1M)+1)))+geom_boxplot()+facet_wrap(~gvinc)
+```
+
+```{r}
+ggplot(data=cred,aes(x=log(abs(IM_PROM_IM_OPERS_TARJ_TDC_1M)+1),y=log(abs(IM_PROM_IM_CARGOS_6M)+1)))+geom_point(aes(color=factor(contrata)))+geom_smooth(method='lm')+facet_wrap(~TP_NIVEL_IR_AJUSTADO)
+```
+

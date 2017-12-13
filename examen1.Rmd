@@ -1,0 +1,506 @@
+---
+title: "examen1"
+author: "Abraham Nieto 51556, Jesús Rodrigo Cedeño Jiménez 176576"
+date: "27 de septiembre de 2017"
+output: html_document
+---
+**Probabilidad.** Puedes usar simulación o encontrar la respuesta de manera analítica (incluye procedimiento).
+Una caja contiene 10 pares de aretes, si se seleccionan 8 aretes.
+¿Cuál es el epacio de resultados?
+```{r}
+#tenemos en total 20 aretes(10 pares) el espacio muestral son todas las combinaciones de seleccionar 8 aretes de 20, entonces existen:
+choose(20,8)
+#posibles resulados
+
+#hacemos un vector del 1 al 10 de pares
+pares<-c(1:10)
+#hacemos el conjunto de aretes donde relacionamos cada par con el mismo numero
+universo<-c(pares,pares)
+#entonces tensmos 20 aretes donde los pares se relacionan ej: ij el par i,j para i,j=1,...10
+universo
+#entonces is seleccionamos 8
+sample(universo,8,replace=FALSE)
+#podemos ver 1 resultado 
+```
+
+¿Cuál es la probabilidad de que no se seleccione ningún par?
+```{r}
+#primero generamos 1 funcion que identifique y cuente  pares en un vector de 8
+pares<-function(v){
+  n<-length(v)
+  cont<-0
+  for(i in 1:n){
+    if(v[i] %in% v[-i]){
+      cont<-cont+1
+    }
+  }
+  return(cont/2)
+}
+
+#vamos a simular 1millon de selecciones y contamos cuantos casos tenemos sin pares
+#numero de simulaciones
+sim<-1000000
+#vector de ceros que vamos a llenar con 1 cada vez que se cumpla que no haya pares
+exito<-c(rep(0,sim))
+for(i in 1:sim){
+  #seleccionamos los 8 aretes
+ mues<-sample(universo,8,replace=FALSE) 
+ #si el numero de pares es cero...
+ if(pares(mues)==0){
+   exito[i]<-1#ponemos un 1 en caso de que haya 0 pares en esta iteracion
+ }
+}
+
+#con el promedio de exito podemos ver la proba de que haya 0 pares en n  es ..
+mean(exito)
+
+
+```
+
+¿Cuál es la probabilidad de que se seleccione exactamente un par completo?
+
+```{r}
+#vamos a simular 1millon de selecciones y contamos cuantos casos tenemos sin pares
+#numero de simulaciones
+sim<-1000000
+#vector de ceros que vamos a llenar con 1 cada vez que se cumpla que no haya pares
+exito<-c(rep(0,sim))
+for(i in 1:sim){
+  #seleccionamos los 8 aretes
+ mues<-sample(universo,8,replace=FALSE) 
+ #si el numero de pares es 1...
+ if(pares(mues)==1){
+   exito[i]<-1#ponemos un 1 en caso de que haya 1 par en esta iteracion
+ }
+}
+
+#con el promedio de exito podemos ver la proba de que haya 1 par en n  es ..
+mean(exito)
+```
+
+
+b.-A y B juegan una serie de juegos. En cada juego A gana con probabilidad 0.4 y B con probabilidad 0.6 (independiente de lo ocurrido en los otros juegos). Paran de jugar cuando el número total de juegos ganados de un jugador es dos juegos más que el total de juegos ganados por el otro jugador:
+Cuál es el espacio de resultados?
+```{r}
+#sabemos que 6 de cada 10 juegos gana B y en 4 A entonces:
+resultados<-c('A','A','A','A','B','B','B','B','B','B')
+sample(resultados,1,replace=FALSE)
+#Universo de resultados es entonces el número de juegos siempre es par ya que para terminar siempe debe ganar alguno 2 juegos más que el otro.
+```
+
+Encuentra la probabilidad de que se jueguen 4 juegos en total.
+```{r}
+#Hacemos la funcion  para simular 1 serie de juegos...
+game<-function(){
+#hacemos un vector para registrar los juegos y quien gana...
+juego<-c()
+#contamos cuantos juegos van..
+cont<-0
+while(abs(sum(juego=='A')-sum(juego=='B'))<2){#mientras no haya una diferencia de 2 o mas juegos ganados seguimos jugando...
+  win<-sample(resultados,1,replace=FALSE)#seleccionamos 1 ganador
+  juego<-append(juego,win)#registraos quien gana
+  cont<-cont+1#contamos en que numero de juegos vamos
+}
+
+return(juego)
+}
+w<-game() # aqui podemos ver el tamaño del vector es el numero de juegos:
+w
+length(w)
+
+#simulamos ahora 1 millon de series de juego para responder la proba de que se hagan solo 4 juegos..
+nsim<-1000000
+ex<-c(rep(0,nsim))
+for(i in 1:nsim){
+  w<-game()
+  if(length(w)==4){
+    ex[i]<-1#si la i-esima serie acabo en 4 juegos entonces es exito y se reistra
+  }
+}
+#la proba de que solo hagan 4 series es:
+mean(ex)
+```
+
+
+Encuentra la probabilidad de que A gane la serie.
+```{r}
+#simulamos ahora 1 millon de series de juego para responder la proba de que A gane.
+nsim<-1000000
+ex<-c(rep(0,nsim))
+for(i in 1:nsim){
+  w<-game()
+  if(sum(w=='A')>sum(w=='B')){
+    ex[i]<-1#si la i-esima serie es ganada por A entonces es exito y se registra
+  }
+}
+#la proba de que gane A la serie es:
+mean(ex)
+```
+
+**2.-Bootstrap.** La base de datos amis (publicada por G. Amis) contiene información de velocidades de coches en millas por hora, las mediciones se realizaron en carreteras de Cambridgeshire, y para cada carretera se realizan mediciones en dos sitios. Mas aún, las mediciones se realizaron en dos ocasiones, antes y después de que se instalara una señal de alerta (de dismunición de velocidad), esta señal se erigió únicamente en uno de los dos sitios de cada carretera.
+La cantidad de interés es el cambio medio relativo de velocidad en el cuantil 0.85. Se eligió esta cantidad porque el objetivo de la señal de alerta es disminuir la velocidad de los conductores más veloces.
+Variables: speed: velocidad de los autos en mph, period: periodo en que se hicieron las mediciones 1 indica antes de la señal, 2 cuando ya había señal, pair: carretera en que se hizo la medición.
+
+a.-¿Las observaciones conforman una muestra aleatoria? Explica tu respuesta y en caso de ser negativa explica la estructura de los datos.
+
+Esto es una muestra aleatoria ya que en las ubicaciones en las que se está realizando las observaciones en un tiempo indefinido pasa un número “infinito” de autos, por lo que únicamente registrar en una ventana de tiempo es considerado como sólo una muestra. Sí es una muestra aleatoria debido a que cada observación es registrada de manera aleatoria; esto es que se registra cada velocidad sin hacer consideraciones adicionales, esto vuelve a la muestra aleatoria debido a que son los autos que pasen no se pueden predecir ni seleccionar.
+```{r}
+library(tidyverse)
+library(knitr)
+library(ggplot2)
+knitr::opts_chunk$set(
+  comment = "#>",
+  collapse = TRUE,
+  fig.align = "center"
+)
+comma <- function(x) format(x, digits = 2, big.mark = ",")
+theme_set(theme_minimal())
+#leemos tabla
+amis<- read_delim("amis.csv", ",") 
+
+amis
+
+#para responder la pregunta veamos la distribucion de cada variable
+#si seleccionamos por periodo vemos que ambos tienen la misma proba de seleccionarse por tanto esta variable es aleatoria.
+ggplot(data=amis,aes(x=factor(period)))+geom_bar(aes(y=..count../sum(..count..)))
+#mismo caso con warning y pair....
+ggplot(data=amis,aes(x=factor(warning)))+geom_bar(aes(y=..count../sum(..count..)))
+ggplot(data=amis,aes(x=factor(pair)))+geom_bar(aes(y=..count../sum(..count..)))
+
+#con speed podemos ver que la probabilidad de cada valor no es igual ademas de que sigue una distribucion normal
+ggplot(data=amis,aes(x=factor(speed)))+geom_bar(aes(y=..count../sum(..count..)))
+
+#prop.table(table(amis$speed))
+#amis %>% group_by(speed)%>%summarise(cont=count(vars=ID))
+```
+b) Calcula el estimador plug-in de $\eta$.
+$$
+η=1m∑[(ηa1−ηb1)−(ηa0−ηb0)]
+$$
+```{r}
+etf<-function(data,k){#funcion que calcula eta....
+db<-data[k,]  
+#sea cada etaii el vector de percentiles 85 para cada carretera entonces los inicializamos en 0
+eta11<-c(rep(0,11))#vector de zeros para 11 carreteras
+eta12<-c(rep(0,11))#vector de zeros para 11 carreteras
+eta21<-c(rep(0,11))#vector de zeros para 11 carreteras
+eta22<-c(rep(0,11))#vector de zeros para 11 carreteras
+carret<-c(1,2,5,7,8,9,10,11,12,13,14)#cada carretera
+
+
+for(i in 1:length(carret)){#por cada carretera calculamos el percentil 85 de la velocidad
+b11<-db%>%filter(period==1 & warning==1 & pair==carret[i])#generamos la base con los filtros por carretera antes de la se;al y con alerta
+eta11[i]<-quantile(b11$speed,.85)
+b21<-db%>%filter(period==2 & warning==1 & pair==carret[i])
+eta21[i]<-quantile(b21$speed,.85)
+b12<-db%>%filter(period==1 & warning==2 & pair==carret[i])
+eta12[i]<-quantile(b12$speed,.85)
+b22<-db%>%filter(period==2 & warning==2 & pair==carret[i])
+eta22[i]<-quantile(b22$speed,.85)
+}
+
+eta<-mean((eta11-eta21)-(eta12-eta22))
+return(eta)
+}
+#el estimador plug-in es...
+etf(amis)
+```
+
+
+c.Genera B=3000 replicaciones bootstrap de ηη y realiza un histograma. Pista: 1) considera tu respuesta de a) para tomar las muestras bootstrap, 2) hay muchas maneras de resolver esta pregunta, sin embargo, algunas funciones que te pueden resultar útiles son ldply y rdply (de plyr), do.call, group_by, mutate y summarise (de dplyr), spread (tidyr). También puedes usar los paquetes boot ó bootstrap si lo deseas.
+
+```{r}
+library(boot)
+library(bootstrap) 
+library(ggplot2)
+#usamos la función boot del mismo paquete para hacer las 3000 replicaciones y usando la función etf que hicimos e el inciso anterior...
+
+#podemos observar con la tabla sumb que cada categoria de period,warning y pair tiene exactamente 100 observaciones,entonces podemos generar las muestras bootstrap estratificadas.
+sumb<-amis%>%group_by(period,warning,pair)%>%summarize(cont=n())%>%arrange(cont)
+sumb
+
+#hacemos los estrato concatenando period,warning y pair...
+est<-as.integer(paste0(amis$pair,amis$warning,amis$period))
+
+vb<-boot(amis,etf,R=3000,strata = est)
+
+vb$t0# este es el estimador original
+#graficamos la distribución de los estimadores generados...
+ggplot(data=NULL,aes(x=vb$t))+geom_histogram(binwidth = .15)
+
+
+```
+
+
+
+
+d.Genera intervalos de confianza usando la aproximación normal y percentiles. Comparalos y en caso de encontrar diferencias explica a que se deben.
+```{r}
+#Hacemos los intervalos de confianza con la normal y percentiles usando la funcion boot.ci que devuelve los intervalos de confianza
+IC<-boot.ci(vb,type=c("norm","perc"),conf=0.95)# intervalos al 95% de confianza es decir tenemos los valores de los percentiles 2.5% y 97.5%
+IC
+
+#haciendo un histograma con los intervalos podemos ver que existen diferencias entre estos lineas verdes intervalos percentiles, rojas de la normal...
+ggplot(data=NULL,aes(x=vb$t))+geom_histogram(binwidth = .15)+geom_vline(xintercept=IC$normal[2],colour='red')+geom_vline(xintercept=IC$normal[3],colour='red')+geom_vline(xintercept=IC$percent[4],colour='green')+geom_vline(xintercept=IC$percent[5],colour='green')
+```
+La diferencia entre los intervalos se debe a que la distribución de las replcaciones bootstrap aunque parece normal esta un poco sesgada las caidas después de la media son más pronunciadas del lado derecho.
+
+**3. Manipulación de datos y Bootstrap**
+
+Lee los datos cimetidine_raw, las variables son: formulation indica si la observación corresponde a formulación de refernecia o de prueba, subj corresponde al sujeto, seq toma dos valores 1 indica que el sujeto se eavluó tomando la formulación de tratamiento primero y después la de referencia, 2 indica el caso contrario. prd indica el periodo (1 o 2) y las variables HRXX indican la medición (concentración de cimeditine en mCG/ml) para la hora XX (HR0 corresponde a la hora cero, HR05 a media hora, HR10 a una hora,…, HR240 a 24 horas).
+```{r}
+library(tidyverse)
+pew <- read_delim("cimeditine_raw.txt", "\t", 
+  escape_double = FALSE, trim_ws = TRUE)#leemos los datos usando tidyverse
+pew
+```
+¿cumplen los principios de los datos limpios?, En caso de que no los cumplan limpialos y explica que fallaba. Imprime las primeras líneas de los datos limpios (si ya estaban limpios entonces los datos originales).
+**No los cumplen porque las variables HR NO SON VARIABLES SON VALORES por tanto las variables estan organizadas por filas y por columnas**
+```{r}
+#limpiando datos..
+pew_tidy <- gather(data = pew, hora, concentracion, -formulation,-subj,-seq,-prd)
+head(pew_tidy)
+```
+
+Grafica la concentración del medicamento por hora. Debes graficar en el eje horizontal la hora, en el eje vertical la concentración para cada persona, bajo cada tratamiento. Un ejemplo de lo que debes hacer es esta gráfica, con la diferencia que la curva de Wikipedia es el promedio sobre todos los individuos y tu graficarás una para cada uno. ¿Qué puedes ver en las gráficas?
+```{r}
+#para la variable hora necesitamos ordenarla ya que esta es ordinal
+levs<-c('HR0','HR05','HR10','HR15','HR20','HR30','HR40','HR60','HR80','HR100','HR120','HR180','HR240')
+
+ggplot(data=pew_tidy,aes(x=ordered(hora,levels=levs),y=concentracion))+geom_point(aes(color=formulation))+facet_wrap(~subj)
+```
+
+Loque podemos ver en la gráfica es pimeroq ue sólo la mitad de los sujetos se les dio la tableta de 800 y 2 de 400 es decir que estos tienen resultados de prueba y referencia, con excepción del individuo 11 para el resto de los sujetos que recibieron ambos tratamientos parecen tener mismos resultados ya los niveles de concentración por hora son muy parecidos en ambos casos o en otras palabras ambos tratamientos parecen tener la misma distribución.
+```{r}
+#vamos a hacer la funcion AUC...
+auc<-function(suj,f){#paraetro suj es el numero de sujeto que vamos a analizar y f es prueba o referencia T o R.
+  
+ii<-pew_tidy%>%filter(subj==suj & formulation==f)%>%mutate(t=as.numeric(substr(hora,3,5))/10)#desde la tabla original generamos el filtro por sujeto y creamos la ariable t como tiempo medido en horas
+if(nrow(ii)>0){#si el individuo recibio tratamiento f entonces...
+tr<-c(rep(0,nrow(ii)-1))#creamos un vector de 0's que vamos a llenar con cada area
+for(i in 2:nrow(ii)){
+tr[i]<-(ii$concentracion[i]+ii$concentracion[i-1])*(ii$t[i]-ii$t[i-1])#aplicamos formula de trapecio para cada diferencia 
+}  
+return(sum(tr)/2) #sumamos las areas y dividimos por 2
+}
+else{#no recibio este tratamiento por tanto no hay datos 0
+  return(0)
+}
+}
+
+#calculamos auc para cada individuo...
+dat_auc<-data.frame(subj=c(1:24))
+auc_T<-c(rep(0,24))#inicializamos el vector de aucs para los 24 sujetos en T y R
+auc_R<-c(rep(0,24))
+for(j in 1:24){
+  auc_T[j]<-auc(j,'T')
+  auc_R[j]<-auc(j,'R')
+}
+
+dat_auc$auc_T<-auc_T
+dat_auc$auc_R<-auc_R
+#tenemos la tabla con los aucs de cada individuo por tratamiento.
+dat_auc
+```
+
+Para el i-ésimo individuo tus observaciones son de la forma xi=(aucTi,aucRi)xi=(aucTi,aucRi), suponiendo que las xixi se obruvieron de manera aleatoria de una distribución bivariada PP, entonces la cantidad poblacional de interés es el parámetro θ=μT/μR. Calcula el estimador plug-in de θ.
+```{r}
+#caculando la media de auc_T
+tt<-dat_auc%>%filter(auc_T!=0.0)#para el promedo de auc de referencia no usamos aquellos individuos que no se les dio tratamiento
+muT<-mean(tt$auc_T)
+rr<-dat_auc%>%filter(auc_R!=0.0)#para el promedo de auc de referencia no usamos aquellos individuos que no se les dio tratamiento
+muR<-mean(rr$auc_R)
+theta<-muT/muR
+#el parameto theta es...
+theta
+
+```
+
+Usa bootstrap para generar un intervalo del 90% de confianza para θ, ¿la nueva tableta cumple el criterio de bioequivalencia de la FDA?
+```{r}
+#hacemos la funcion para calcular theta
+proms.fun<-function(data,i){
+d<-data[i,]  
+muT<-mean(d$auc_T)
+rr<-d%>%filter(auc_R!=0.0)#para el promedo de auc de referencia no usamos aquellos individuos que no se les dio tratamiento
+muR<-mean(rr$auc_R)
+theta<-muT/muR
+#el parameto theta es...
+theta
+}
+#bootstrap de theta
+tboot<-boot(dat_auc,proms.fun,R=500)
+#intervalo usando boot.ci
+IC_auc<-boot.ci(tboot,type=c("norm","perc"),conf=0.9)# intervalos al 90% de confianza es decir tenemos los #los intervalos de confianza tanto normal y de pecentiles son casi iguales...
+IC_auc
+```
+
+Dado que el intervalo estan en (.8,1.25) (lo dice el resultado de arriba) entonces los tratamientos son bioequivalentes segun la FDA.
+
+
+**4. Simulación de variables aleatorias**
+
+a. Recuerda la distribución geométrica ¿cuál es a relación entre la variable aleatoria binomial negativa y la geométrica?
+****
+
+**la función geométrica es el caso particular de la binomial negativa con parámetros $r=1$ y $p$ ** 
+
+
+b.Utiliza el procedimiento descrito para generar observaciones de una variable aleatoria con distribución geométrica y la relación entre la geométrica y la binomial negativa para generar simulaciones de una variable aleatoria con distribución binomial negativa (parámetro p = 0.4, r = 20). Utiliza la semilla 221285 (en R usa set.seed) y reporta las primeras 10 simulaciones obtenidas.
+
+```{r}
+#de acuerdo con lo visto en a) podemos pensar que dado que que la geométrica es el caso de 1 éxito para la binomial negativa entonces r=2 éxitos debe ser la suma de 2 gemétricas y así sucesivamente de tal modo que para generar una binomial negativa podemos hacer suma de geométricas..
+set.seed(221285)#semilla
+simg<-function(p,n){#función geométrica con p=proba y n=num de repeticiones
+  q<-1-p
+  u<-runif(n)#hacemos n valores uniformes
+  x<-floor(log(u)/log(q))+1# calculamos X como en las notas del examen
+  return(x)
+}
+
+w<-simg(.4,1000)#probamos la función simg
+negb<-function(n=20,p,nrp){#función de binomial negativa sumando geométricas param n=exitos, p=proba de 1 exito, nrp=num de valores
+    x<-c(rep(0,nrp))#inicializamos un vector de ceros de tamaño nrp
+    for(i in 1:n){
+     x<-simg(p,nrp)+x#sumamos cada simulación de tamaño nrp de las geométricas 
+    }
+  return(x)
+}
+
+nn<-negb(20,.4,1000)
+ggplot(data=NULL,aes(x=nn))+geom_histogram(binwidth = 1)#histograma
+
+#primeras 10 observaciones...
+nn[1:10]
+#media de las observaciones
+mean(nn)
+
+```
+
+c. Verifica la relación
+pj+1=j(1−p)j+1−rpj
+pj+1=j(1−p)j+1−rpj
+y úsala para generar un nuevo algoritmo de simulación, vuelve a definir la semilla y reporta las primeras 10 simulaciones.
+
+```{r}
+set.seed(221285)
+met2 <- function(p0,r){#función con el método de inversión visto en clase usamos el código como el que se usó en la poisson
+  U <- runif(1)
+  j <- 20#inicializamos en 20 porque queremos mínio 20 éxitos
+  p <- p0**20# se inicializa con p**20 ya que se multiplica p0 20 veces
+  P<- p
+  while(U >= P){
+    p <- (j*(1-p0) / (j+1-r))*p#valor de p en cada iteración
+    P <- P + p
+    j <- j + 1
+  }
+  j
+}
+met2(.4,20)#probamos la función
+
+sims_pois <- rerun(1000, met2(.4,20)) %>% flatten_dbl() #corremosmil veces
+
+ggplot() +
+    geom_histogram(aes(x = sims_pois, y = ..density..), binwidth = 1)
+```
+
+
+
+```{r}
+mean(sims_pois)
+```
+
+d.Realiza 10,000 simulaciones usando cada uno de los algoritmos y compara el tiempo de ejecución.
+
+```{r}
+a<-system.time(negb(20,.4,10000))
+#tiempo de defuncion negb
+a
+b<-system.time(rerun(10000, met2(.4,20)) %>% flatten_dbl() )
+#tiempo de funcion met2
+b
+```
+mas eficiente simular con geometricas...
+
+e.Genera un histogrma para cada algoritmo (usa 1000 simulaciones) y comparalo con la distribución construida usando la función de R dnbinom.
+```{r}
+#histograma algoritmo negb
+ggplot(data=NULL,aes(x=nn))+geom_histogram(binwidth = 1)
+#histograma funcion met2
+ggplot() +
+    geom_histogram(aes(x = sims_pois, y = ..density..), binwidth = 1)
+
+#histograma funcion dnbinom
+#hacemos dnbinom con un vector de valores de 20 a 90 ya que son los valores minimos para obtener 20 exitos de la distribución y dado que la media de las funciones anteriores es 50 +- podemos usarla como parámetro
+dnb<-dnbinom(20:90,size = 20,mu=50.0)# si se piensa en una binomial negativa la media es (k/p) e nuestro caso k=20 el n[umero de sucesos y p=.4 entnces (k/p)=50
+#usamos barplot para graficar el equivalente  a los valores que toma dnbinom
+barplot(dnb, col="blue", names.arg=20:90)
+
+
+
+```
+
+
+
+**5. Intervalos de confianza**
+
+En este problema realizarás un ejercicio de simulación para comparar cobertura de intervalos de confianza. Utiliza la función rpois() (y la semilla 261285) para simular muestras de tamaño 20 de una distribución Poisson con parámetro λ=2.5λ=2.5, el estadístico de interés es θ=exp(−2λ)θ=exp(−2λ).
+
+Sigue el siguiente proceso:
+
+Genera una muestra aleatoria de tamaño 10 una distribución Poisson con λ=2.5λ=2.5.
+
+Genera 6000 muestras bootstrap y calcula intervalos de confianza del 95% para θ̂ θ^ usando 1) el método normal, 2) percentiles y 3) BC_a.
+
+Revisa si el intervalo de confianza contiene el verdadero valor del parámetro, en caso de que no lo contenga registra si falló por la izquierda o falló por la derecha.
+
+Repite el proceso descrito 500 veces y llena la siguiente tabla:
+```{r}
+#replicamos el codigo de la tarea 6...
+library(bootstrap)
+set.seed(261285)
+calcula_intervalos <- function(n = 10){
+    x <- rpois(n,2.5)#simulamos datos poisson con lambda=2.5
+    theta <- exp(-2*mean(x))    # theta_hat
+    theta_b <- rerun(6000, sample(x, size = n, replace = TRUE)) %>% 
+        map_dbl(~exp(-2*mean(.)))
+    bca <- bcanon(x, nboot = 6000, theta = function(y) exp(mean(-2*y)), alpha = c(0.025, 0.975))$confpoints[,2]  #       intervalos BC_a
+    intervalos <- data_frame(metodo = c("normal", "percent", "BC_a"), 
+        izq = c(theta - 1.96 * sd(theta_b), quantile(theta_b, probs = 0.025), bca[1]),
+        der = c(theta + 1.96 * sd(theta_b), quantile(theta_b, probs = 0.975), bca[2])
+    )
+}
+
+sims_intervalos_10 <- rerun(500, calcula_intervalos()) 
+sims_intervalos_10 %>% 
+    bind_rows() %>% 
+    group_by(metodo) %>%
+        summarise(
+            falla_izq = 100 * sum(izq > exp(-2*2.5)) / 500, 
+            falla_der = 100 * sum(der < exp(-2*2.5)) / 500,
+            cobertura=100- falla_izq-falla_der
+            )
+```
+
+b.Realiza una gráfica de páneles, en cada panel mostrarás los resultados de uno de los métodos (normal, percentiles y BC_a), el eje x corresponderá al número de intervalo de confianza (1,...,5001,...,500) y en el vertical graficarás los límites de los intervalos, es decir graficarás 2 líneas (usa geom_line) una corresponderá a los límites inferiores de los intervalos, y otra a los superiores.
+
+```{r}
+#covertimos sims_intervalos_10  en dataframe
+tab<-function(){
+  df<-data.frame(sims_intervalos_10[1])
+  df$ind<-1
+  for(i in 2:500){
+aux<-data.frame(sims_intervalos_10[i])
+aux$ind<-i
+df<-rbind(df,aux)
+  }
+  return(df)
+}
+tdf<-tab()
+head(tdf)
+```
+```{r}
+norm<-tdf%>%filter(metodo=='normal')
+ggplot(data=tdf)+geom_line(aes(x=ind,y=izq),color='green')+geom_line(aes(x=ind,y=der),color='red')+facet_wrap(~metodo)+labs(y='intervalos')
+```
+

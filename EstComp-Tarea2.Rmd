@@ -1,0 +1,42 @@
+---
+title: "EstComp-Tarea2"
+author: "Abraham Nieto 51556"
+date: "24 de agosto de 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+tab <- read_delim("tarea_estcomp17/2008.csv", ",", 
+  escape_double = FALSE, trim_ws = TRUE) 
+
+View(tab)
+```
+
+
+
+```{r}
+tabvar<-gather(data=tab,causas,tasa,-edo) 
+tabvar
+```
+
+```{r}
+tabf<-separate(tabvar,causas,c("causas","sexo"),"_") 
+tabf
+```
+
+```{r}
+tabfs<-filter(tabf,sexo!="Total") 
+tabfs
+```
+```{r}
+paths <- dir("tarea_estcomp17", pattern = "\\.csv$", full.names = TRUE) 
+paths <- set_names(paths, basename(paths))
+paths
+```
+
+```{r}
+alldata <- map_df(paths, ~read_csv(., col_types = "cddddddddd"), .id = "filename") 
+
+```
+

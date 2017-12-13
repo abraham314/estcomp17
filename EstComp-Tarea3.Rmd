@@ -1,0 +1,186 @@
+---
+title: "EstComp-Tarea3"
+author: "Abraham Nieto 51556"
+date: "31 de agosto de 2017"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(knitr)
+knitr::opts_chunk$set(
+  comment = "#>",
+  collapse = TRUE,
+  fig.align = "center"
+)
+comma <- function(x) format(x, digits = 2, big.mark = ",")
+theme_set(theme_minimal())
+```
+#Introducción:
+
+Es bien sabido que el otorgamiento de créditos es uno de los negocios más rentables para los bancos, es por ello que estos asignan mucho presupuesto a la generación de campañas para la colocación de estos dirigidas a clientes y no clientes de tal modo que el objetivo, en el primer caso, además de acrecentar el negocio también es incrementar la fildelidad del cliente con el banco y en el segundo caso hablamos de atraer nuevos clientes con ofertas crediticias atractivas.
+Entonces, para poder hacer una selección óptima tenemos que encontrar las características más importantes,de los clientes, relacionadas con la aceptación de un préstamo crediticio, además tomar en cuenta que sea solvente para poder pagarlo, de tal modo que podamos jerarquizar a cada uno de ellos con respecto a la posibilidad de que acepten la oferta y con ello lograr que la campaña sea exitosa en términos de tasa de aceptación y de costos.
+Dado lo anterior se plantean 8 preguntas buscando esas caraterísticas mencionadas, 
+
+la pregunta 1. busca saber quienes son los clientes que contratan las ofertas
+
+la pregunta 2.- trata de ver una diferencia entre las poblaciones de clientes que responden y no.
+
+la pregunta 3. trata de validar si hace sentido las carácteristicas de un grupo que se comporta distinto a los demás.
+
+la pregunta 4- tratamos de ver que tan diferente son los comportamientos de los clientes en un banco vs. los del país para entender si podemos pensar de la misma forma en términos económicos.
+
+la pregunta 5.- trata de identificar si el ciclo de vida de una persona repercute en la necesidad o gusto de responder a una campaña.
+
+la pregunta 6.-es una consecuencia de la 5 para pensar en una variable que discrimine a los clientes que aceptan la oferta vs. los que no.
+
+la pregunta 7.-llevamos la pregunta 6 a términos individuales para probar la relevancia de la variable # de productos.
+
+la pregunta 8.- Ahora con un sumarizado por estado tratamos de buscar variables relevantes para la clasificación de los clientes y su parecido con lo que conocemos a nivel país.
+
+
+#Descripción de la base de datos:
+
+La base es una muestra aleatoria de los clientes de un banco a quienes se les ha hecho una oferta de préstamos personales(créditos) a lo largo de un año, estas campañas se lanzaron por trimestre, no se cuenta con los meses de estas, el objetivo de la base es para clasificar quienes son los cientes que aceptan las ofertas.
+En General la base muestra variables financieras de los clientes casi todas vistas a 12,6,3 o 1 mes atrás como por ejemplo saldos de los clientes,gastos promedio, saldos de algunos otros créditos, estimaciones anuales de ingresos, etc y como variables categóricas se cuenta con datos como sexo, estado civil, estado de la república donde vive el cliente,clasificación del ciclo de vida de cliente, Ocupación etc.
+En particular la variable contrata es una variabe binaria que identifica aquellos clientes que aceptaron el préstamo con valor 1 0 en otro caso.
+
+se anexa el layout de variables con su descripción por el número de variables sólo se deja parte d este que describe las variables que seusan en el análisis. 
+
+#Metadata:
+
+```{r}
+lay<- read_delim("/home/abraham/layout_cons.csv", ",", 
+  escape_double = FALSE, trim_ws = TRUE) 
+kable(lay)
+```
+
+******rangos********
+TO_RANGO_EDAD  :
+
+if edad, <= 37 then rango_edad = 0;
+    else if coalesce(edad,0) > 37 and coalesce(edad,0) <= 44 then rango_edad = 1;
+    else if coalesce(edad,0) > 44 and coalesce(edad,0) <= 52 then rango_edad = 2;
+    else if coalesce(edad,0) > 52 and coalesce(edad,0) <= 62 then rango_edad = 3;
+    else rango_edad = 4;
+
+TP_NIVEL_IR_AJUSTADO 
+
+case when 0 < ingreso_anual <= 50000.0 then '1_RENTA BAJA'
+                when ingreso_anual >  50000.0  and ingreso_anual <= 120000.0  then '2_RENTA MEDIA BAJA'
+                when ingreso_anual >  120000.0  and ingreso_anual <= 250000.0 then '3_RENTA MEDIA ALTA'
+                when ingreso_anual >  250000.0  and ingreso_anual <  450000.0 then '4_RENTA ALTA'
+             when ingreso_anual >= 450000.0 then '5_RENTA MUY ALTA'
+
+
+********************
+
+Se cuenta con un dataset de 176,330 registros(ctes.) con 92 campos o variables donde existe una variable de identificación de clientes (id2) y una variable respuesta a modelar que es contrata la cual es una variable binaria donde 1 significa que el cte. acepta contratar un préstamo y 0 en otro caso. 
+
+Se cuenta con un dataset de 176,330 registros(ctes.) con 92 campos o variables donde existe una variable de identificación de clientes (id2) y una variable respuesta a modelar que es 'contrata' la cual es una variable binaria donde 1 significa que el cte. acepta contratar un préstamo y 0 en otro caso. La tasa de aceptación general es de 1.17%
+
+
+```{r}
+cred<- read_delim("/home/abraham/multivsamp.csv", ";", 
+  escape_double = FALSE, trim_ws = TRUE) 
+datana<-is.na(cred)
+cred[datana]<-0 
+
+cred
+```
+
+**Pregunta 1.-Cuál es el Rango de Nivel de ingresos anuales(TP_NIVEL_IR_AJUSTADO) que más aceptaciones de las campañas tiene o más responde a estas campañas y por sexo quién contrata más? hombres o mujeres?**
+
+```{r}
+credc<-cred%>%filter(contrata==1) 
+ ggplot(data=credc,aes(x=TP_NIVEL_IR_AJUSTADO,fill=CD_SEXO))+geom_bar(aes(y = ..count../sum(..count..)))+labs(y='percent')
+```
+Respuesta 1.-Los clientes que ganan entre 50 y 120 mil pesos anuales son los que más aceptan préstamos poco más del 35% de estos de acuerdo a la distribución por sexo podemos ver que los hombres son los que más aceptan los préstamos.
+
+**Pregunta 2.- Una de las hipótesis es que un cliente busca algún tipo de crédito cuando tiene muchos gastos o normalmente tiene un gasto mensual alto recurrente, de acuedo con esta hipótesis Para que segmentos de nivel de ingreso se cumple y para cuales no? Para responder esta pregunta pregunta vamos a usar la variable IM_PROM_IM_CARGOS_12M  que significa el importe promedio mensual de cargos o pagos que ha hecho el cliente en el último año.**
+```{r}
+ggplot(data=cred)+geom_boxplot(aes(x=factor(contrata),y=log(abs(IM_PROM_IM_CARGOS_12M)+1)))+facet_wrap(~TP_NIVEL_IR_AJUSTADO)
+```
+Respuesta 2.-Los clientes que ganan más de 450mil pesos anuales (Renta muy alta) no tienen diferencia, en la distribución  del gasto promedio mensual que hacen a lo largo de un año, entre los que aceptan o no un préstamo crediticio, es decir esta variable no discrimina entre los que contratan y no los préstamos crediticios para este segmento de nivel de ingresos, podemos ver que para los segmentos con ingresos menores de 450mil anuales sí se cumple la hipótesis planteada.
+
+
+**Pregunta 3.-Dado la respuesta 2 aquellos clientes que tienen ingresos de más de 450mil pesos se entendería que son los clientes con mayores ingresos y mayor liquidez(en términos bancarios esto significa que se tiene más saldo de cuentas de captación que saldos de crédito), para aquellos clientes que aceptan los préstamos está relación es evidente? la edad y el estado civil influyen? si no se da la relación esperada que podemos concluir?** 
+Para revisar la liquidez de los clientes vamos a utilizar la variable TO_NECESIDAD_FINAN_CAP_3M que muestra la liquidez del cliene en los últimos 3 meses y la estimación de ingresos numérica vamos a usar TO_IR_AJUSTADO, el estado civil(C,S) casado y soltero y para la edad TO_RANGO_EDAD rangos de edad descritos al principio y sólo analizaremos a  aquellos que aceptan las ofertas de préstamos.
+```{r}
+library(Hmisc)
+cred5<-cred%>%filter(TP_NIVEL_IR_AJUSTADO=='5_RENTA_MUY_ALTA')%>%filter(CD_EDO_CIVIL %in% c('C','S'))%>%filter(contrata==1)
+ggplot(data=cred5,aes(x=log(TO_NECESIDAD_FINAN_CAP_3M+1),y=log((TO_IR_AJUSTADO/4.0)+1)))+geom_point()+geom_smooth(method='lm')+facet_grid(CD_EDO_CIVIL~factor(TO_RANGO_EDAD))
+```
+Respuesta 3.- Primero los segmentos que muestran una relación positiva de las variables  son clientes solteros entre 37 y 44 años así como aquellos solteros de entre 52 y 62 años, los datos más extraños se presentan en clientes casadosde más de 52 años(rangos 3 y 4) donde se puede ver que a mayor liquidez menor es la estimación de ingresos anuales, esto nos lleva a pensar que esta estimación anual quizás no está bien calculada para estos clientes.
+
+
+**Pregunta 4.-Cuales son los estados con mayor estimación de ingresos anuales promedio entre los que contratan y no los créditos, se parece a la realidad del País?**
+```{r}
+credo<-cred%>%filter(CD_ESTADO!='0')
+ggplot(credo,aes(x=CD_ESTADO, y=TO_IR_AJUSTADO,fill=factor(contrata))) + stat_summary(fun.y=mean, geom="bar")+coord_flip()+facet_wrap(~factor(contrata))       
+```
+
+Respuesta 4.- Podemos observar, para el caso de los clientes que no contratan, que Nuevo León , Jalisco,Sinaloa y Aguascalientes son los estados con mayor estimación de ingresos promedio, mientras ques estados  como Tlaxcala(TL), Querétaro, Baja California y Chiapas son los que menor estimación de ingresos promedio tienen con excpeción de Baja california el resto son estados con niveles socioeconómicos menores que los del norte.
+Para el caso del universo que acepta la campaña, los estados con mayor promedio de ingreso estimado anual son: Tabasco,Guerrero,Coahuila y DF
+
+
+**Pregunta 5.- Cuál es el número de productos en promedio que se tienen por ciclo de vida, y cual es el porcentaje de contrataciones por cada segmento**
+```{r}
+library(knitr)
+ciclo<-select(cred,TP_SEGMENTO_FINAL2,NU_VINC_COGNODATA,contrata)%>%group_by(TP_SEGMENTO_FINAL2)%>%summarise(prods=mean(NU_VINC_COGNODATA),pct_contrata=mean(contrata)*100)%>%arrange(desc(pct_contrata))
+kable(ciclo,caption = '# de Productos y % de contratos por ciclo de vida')
+```
+
+Respuesta 5.- En este caso podemos observar que el segmento con mayor número de productos en el banco son los hogares con hijos que sigifica que un cliente tiene al menos 1 hijo, y vive en familia, entonces podemos observar que estos tienen en promedio 4 productos en el banco(prods) lo cual hace mucho sentido ya que se entiende que un jefe(a) de familia diversifique más su portafolio de productos, y además también la tasa de contratación de este segmento es la mayor(1.9%), observando la tabla parece que existe una relación positiva entre el número de productos y la tasa de aceptación de la campaña....
+
+**Pregunta 6.- Podemos confirmar la relación entre # de productos y tasa de aceptación...**
+```{r}
+library(plotly)
+p<-ggplot(data=ciclo,aes(x=prods,y=pct_contrata,color=TP_SEGMENTO_FINAL2))+geom_point(aes(size=1))
+ggplotly(p)
+```
+
+Respuesta 6.- es claro en la gr[afica que existe una relación entre el promedio de productos por segmento y la tasa de aceptación, entonces este es un indicio de que el número de productos puede discriminar a los clientes que aceptana o no los préstamos.
+
+**Pregunta 7.-Podemos asegurar que a mayor número de productos tenga un cliente, es más propenso a aceptar un préstamo crediticio?**
+```{r}
+ggplot(data=cred,aes(x=factor(contrata),y=NU_VINC_COGNODATA))+geom_boxplot()+facet_wrap(~TP_SEGMENTO_FINAL2)
+```
+
+Respuesta 7.-En caso de hacer un modelo para clasificar a los clientes que contratan está variable sería claramente relevante porque casi en todos los segmentos hace diferencia la distribución entre los que contratan y los que no.
+Claramente los segmentos "SIN_EDAD" e "INFANTIL" no tienen contrataciones y esto se explica por que un cliente menor de edad no puede tener un préstamo de crédito y el segmento que no tiene las edades es porque son en su Mayoría personas Morales entonces estos no pueden contratar préstamos personales para físicos, ahora bien hemos entonces encontrado que podemos trabajar con un subconjunto de la base quitando estos 2 segmentos.
+
+**Pregunta 8.- Cuál es el estado de la república con mayor número de préstamos activos promedio hay en el momento que se les ofrece la campaña? es más probable que se acepté un préstamo dado que se tiene uno vigente?,Cuál es la relación entre los ingresos promedio por estado y los gastos promedio mensuales por individuo por estado?,Cuál es la relación de la inactividad de los clientes en los últimos 3 meses y las contrataciones de préstamos por estado?**
+```{r}
+ocup<-select(cred,CD_ESTADO,NU_VINC_COGNODATA,contrata,TO_IR_AJUSTADO,TO_NECESIDAD_FINAN_CAP_3M,IM_PROM_IM_CARGOS_12M,TO_MISS_ACTIVO_TOTAL_3M,TO_PREST_CONSUMO)%>%group_by(CD_ESTADO)%>%summarise(prods=mean(NU_VINC_COGNODATA),ingresos=mean(TO_IR_AJUSTADO),pct_contrata=mean(contrata)*100,liquidez=mean(TO_NECESIDAD_FINAN_CAP_3M),gastos=mean(IM_PROM_IM_CARGOS_12M),num_prestamos=mean(TO_PREST_CONSUMO),inactividad=mean(TO_MISS_ACTIVO_TOTAL_3M))%>%arrange(desc(pct_contrata))%>%arrange(desc(num_prestamos))%>%filter(CD_ESTADO!=0)
+kable(ocup)
+```
+Respuestas 8.- Como vemos n la tabla Tabasco es el estado con más préstamos vigentes con 0.2 préstamos en promedio por cliente.
+
+**es más probable que se acepté un préstamo dado que se tiene uno vigente?**
+```{r}
+g<-ggplot(data=ocup,aes(x=num_prestamos,y=pct_contrata))+geom_point(aes(color=CD_ESTADO))+geom_smooth(method='loess')
+ggplotly(g)
+```
+
+No existe una relación muy clara que a mayor número de préstamos se dé una mayor aceptación del crédito, no hay una relacion lineal clara en los datos
+
+
+**Cuál es la relación entre los ingresos promedio por estado y los gastos promedio mensuales por individuo por estado?**
+```{r}
+g<-ggplot(data=ocup,aes(x=ingresos,y=gastos))+geom_point(aes(color=CD_ESTADO))+geom_smooth(method='lm')
+ggplotly(g)
+```
+
+La relación es casi perfecta el que más gana más gasta
+
+**Cuál es la relación de la inactividad de los clientes en los últimos 3 meses y las contrataciones de préstamos por estado?**
+```{r}
+g<-ggplot(data=ocup,aes(x=inactividad,y=pct_contrata))+geom_point(aes(color=CD_ESTADO))+geom_smooth(method='loess')
+ggplotly(g)
+```
+
+Aunque no es muy claro, parece que la tendencia se carga más a pensar que a mayor inactividad hay menor % de contrataciones por estado.
+
+
+

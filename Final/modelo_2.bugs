@@ -1,0 +1,15 @@
+
+model{
+    for(i in 1:N){
+        x[i] ~ dbern(theta[moneda[i]])
+    }
+    # inicial
+    for(m in 1:M){
+
+        theta[m] ~ dbeta(a,b)
+    }
+    a<-mu*k
+    b<-(1-mu)*k
+    mu~dbeta(10,10)
+    k~dgamma(.51,0.01)
+}

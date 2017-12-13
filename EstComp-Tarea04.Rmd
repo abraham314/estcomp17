@@ -1,0 +1,175 @@
+---
+title: "EstComp04"
+author: "Abraham Nieto 51556"
+date: "7 de septiembre de 2017"
+output: html_document
+---
+1. Una baraja regular de 52 cartas se divide de manera aleatoria en 4 pilas de 13 cartas cada una. Calcula la probabilidad
+de que cada pila tenga exactamente un as. 
+vamos a simular de la siguiente forma:
+tenemos 52 cartas supongamos que del 1 al 52 se representan todas las cartas de la baraja entonces vamos a decir que los Aces sin perdida de generalidad son las cartas 1,14,27,40 entonce lo que queremos es la probabilidad de en las 4 particiones aparezca exactamente una de estas..
+```{r}
+x<-c(1:52) #52 cartas
+n<-10000 #repeticiones
+casos<-c(rep(0,n))
+
+for (i in 1:n){
+
+
+a<-sample(x,13,replace=FALSE) #se seleccionan las primeras 13 de 52
+xx<-x[-a]
+b<-sample(xx,13,replace=FALSE) # las segundas 13 de 39
+xxx<-x[c(-a,-b)]
+c<-sample(xxx,13,replace=FALSE)# las 3as 13 de 26 
+xxxx<-x[c(-a,-b,-c)]
+d<-sample(xxxx,13,replace=FALSE)# las 13 que quedan hacen la ultima particion
+
+
+#funcion para ver si algun As esta en la particion i  de la baraja con i=1,2,3,4
+busca<-function(con){
+  val<-0
+  if(1 %in% con || 14 %in% con || 27 %in% con || 40 %in% con){
+    val<-1
+  }
+  return(val)
+}
+
+sumv<-function(x){
+  dd<-0
+  if(x==4){
+    dd<-1
+  }
+  return(dd)
+}
+#si busca(a)+busca(b)+busca(c)+busca(d)==4 significa que hay una de las 4 cartas buscadas en cada particion
+sumv(busca(a)+busca(b)+busca(c)+busca(d)) #si esto pasa marcamos exito con 1 yon el promedio de 1s y 0s 
+#obtenemos la proba de que haya 1 as en cada particion
+casos[i]<-sumv(busca(a)+busca(b)+busca(c)+busca(d))
+}
+
+mean(casos)
+```
+con 10mil repeticiones vemos que la probabilidad es de 10.7%
+
+
+2. Se ruedan dos dados justos. ¿Cuál es la porbabilidad condicional de que el segundo resulte en 6 dado que los dados cayeron en números distintos?
+
+Primero veamos el espacio de resultados:
+
+
+       (1,1) (2,1) (3,1) (4,1) (5,1) (6,1)
+       (1,2) (2,2) (3,2) (4,2) (5,2) (6,2)
+       (1,3) (2,3) (3,3) (4,3) (5,3) (6,3)
+       (1,4) (2,4) (3,4) (4,4) (5,4) (6,4)
+       (1,5) (2,5) (3,5) (4,5) (5,5) (6,5)
+       (1,6) (2,6) (3,6) (4,6) (5,6) (6,6)
+       
+Ahora veamos los B=casos donde los número son distintos: 
+
+       (2,1) (3,1) (4,1) (5,1) (6,1)
+       (1,2) (3,2) (4,2) (5,2) (6,2)
+       (1,3) (2,3) (4,3) (5,3) (6,3)
+       (1,4) (2,4) (3,4) (5,4) (6,4)
+       (1,5) (2,5) (3,5) (4,5) (6,5)
+       (1,6) (2,6) (3,6) (4,6) (5,6)
+Tenemos  30 casos
+
+Luego veamos A= el segundo dado sea 6:
+(1,6) (2,6) (3,6) (4,6) (5,6) (6,6)
+
+$(A\cap B)=(1,6) (2,6) (3,6) (4,6) (5,6)$ tenemos 5 elementos 
+
+entonces $P(A\vert B)=\frac{5}{30}=\frac{1}{6}$ 
+
+3. Revolvemos una baraja de cartas y la partimos en dos mitades (26 cartas en cada parte). Extraemos una carta de la primera mitad y resulta en As. Colocamos el As en la segunda mitad de la baraja, revolvemos las 27 cartas correspondientes y seleccionamos una carta. ¿Cuál es la probabilidad de que hayamos seleccionado un As? Pista: condiciona en si seleccionamos o no la carta que añadimos. 
+
+Primero veamos la probabilidad de sacar un as de la primera mitad y supongamos como en el ejercicio 1 que los ases son las cartas 1,14,27 y 40
+```{r}
+x<-c(1:52) #52 cartas
+n<-100000 
+
+sels<-c(rep(0,n))
+for (i in 1:n){
+primera<-sample(x,26,replace=FALSE) #se seleccionan las primeras 26 de 52
+seleccion<-sample(primera,1,replace=FALSE) 
+sels[i]<-busca(seleccion)
+}
+#seleccion
+PA<-mean(sels)#proba de selceccionar 1 As de la primera baraja
+PNA<-1-PA
+PA
+#xx<-x[-a]
+```
+entonces PA es la proba de seleccionar 1 as de la primera baraja de 26 y PNA es la proba de que no se seleccione un As.
+Ahora vamos a ver la proba condcional de escoger un AS en la segunda baraja dado que se selecciona un As de la primera..
+```{r}
+x<-c(1:52) #52 cartas
+n<-100000 
+
+#sels2<-c(rep(0,n)) 
+cond<-c()
+ncond<-c()
+for (i in 1:n){
+primera<-sample(x,26,replace=FALSE) #se seleccionan las primeras 26 de 52
+segunda<-x[-primera] #segunda mitad eliminamos las cartas de x que estan en la primera
+seleccion<-sample(primera,1,replace=FALSE)  #seleccionamos la carta de la primera mitad 
+segunda<-c(segunda,seleccion) #se añade la carta seleccionada al 2do mazo
+if(busca(seleccion)==1){#si la carta seleccionada del primer mazo es un AS, entonces ...
+seleccion2<-sample(segunda,1,replace=FALSE) #se selecciona carta del 2do mazo será As?
+cond<-append(cond,busca(seleccion2)) #vector de 1 y 0s que se llena solo si se selecciona 1 as de la primera mitad
+}
+else {
+seleccion2<-sample(segunda,1,replace=FALSE) #se selecciona carta del 2do mazo será As?
+ncond<-append(ncond,busca(seleccion2)) #vector de 1 y 0s que se llena solo si se selecciona 1 as de la 
+}
+#sels[i]<-busca(seleccion)
+}
+#seleccion
+#primera 
+#segunda
+#seleccion2
+#busca(seleccion2)
+PB_A<-mean(cond) #proba de seleccionar As dado que salio As en el primer mazo y lo añadimos
+PB_Ac<-mean(ncond) #seleccionar As en 2do mazo dad que no salió As en el primer mazo
+PB_A
+PB_Ac
+```
+Entonces tenemos que $P(B|A)*P(A)=0.09*0.077$ donde $A=$ sacar un AS de la primera mitad y $B=$ sacar un as de la segunda mitad+ una carta añadida.
+
+Entonces $P(B)$ la proba de sacar un as en la segunda baraja es
+$$
+P(B)=P(B|A)*P(A)+P(B|A^c)*P(A^c)
+$$
+y esto es:
+```{r}
+PB<-PB_A*PA+PB_Ac*(1-PA)
+PB
+```
+
+
+
+4. Resuelve de manera analítica el problema de las catafixias de Chabelo.
+
+Premisas del problema:
+El concursante elige una puerta de 3, detrás de una puetrta hay un coche y detrás de las otras 2 hay malos premios supongamos cabras como monty hall. 
+
+El presentador, entonces, abre una de las restantes puertas que contiene invariablemente una cabra. El presentador sabe lo que hay detrás de cada puerta y aunque el concursante elija una puerta con una cabra, siempre queda otra.
+
+Por último, a la luz de la nueva información, el presentador ofrece la posibilidad al concursante de cambiar de elección y quedarse con la última puerta, que continúa cerrada.
+
+La solución:
+basado en 3 supestos:
+El presentador siempre abre una puerta que la escoge de entre las restantes y después de que el concursante elija la suya y detrás de la puerta que abre el presentador siempre hay una cabra.
+Entonces spongamos que la estrategia del concursante es cambiar de puerta
+sea $A=$el coche está en la primera puerta y sea $B=$ganar el coche etonces la probabilida de ganar el coche se puede ver como:
+sin pérdida de generalidad supongamos que el concursante siempre elige la puerta 1..
+$$
+P(B)=P(B|A)*P(A)+P(B|A^c)*P(A^c)=0*\frac{1}{3}+1*\frac{2}{3}=\frac{2}{3}
+$$
+por otro lado si el concursante elige no cambiar de puerta nos daremos cuenta que tenemos la proba original:
+
+$$
+P(B)=P(B|A)*P(A)+P(B|A^c)*P(A^c)=1*\frac{1}{3}+0*\frac{2}{3}=\frac{1}{3}
+$$
+
+entonces la mejor opción es cambiar de puerta.

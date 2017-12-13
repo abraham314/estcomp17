@@ -1,0 +1,235 @@
+---
+title: "Tarea10"
+author: "Abraham Nieto 51556"
+date: "5 de noviembre de 2017"
+output: html_document
+---
+
+```{r}
+knitr::opts_chunk$set(
+    comment = "#>",
+    collapse = TRUE, 
+    fig.width=3, fig.height=3
+)
+comma <- function(x) format(x, digits = 2, big.mark = ",")
+options(digits=3)
+
+library(tidyverse)
+library(gridExtra)
+theme_set(theme_minimal())
+```
+
+
+
+
+12-Estadística bayesiana
+1. Modelo Beta-Binomial
+Una compañía farmacéutica afirma que su nueva medicina incrementa la probabilidad de concebir un niño (sexo masculino), pero aún no publican estudios. Supón que conduces un experimento en el cual 50 parejas se seleccionan de manera aleatoria de la población, toman la medicina y conciben un bebé, nacen 30 niños y 20 niñas.
+
+Quieres estimar la probabilidad de concebir un niño para parejas que toman la medicina. ¿Cuál es una inicial apropiada? No tiene que estar centrada en 0.5 pues esta corresponde a personas que no toman la medicina, y la inicial debe reflejar tu incertidumbre sobre el efecto de la droga.
+
+La inicial apropiada debe ser
+```{r}
+30/50
+```
+
+
+Usando tu inicial de a) grafica la posterior y decide si es creíble que las parejas que toman la medicina tienen una probabilidad de 0.5 de concebir un niño.
+```{r}
+theta <- seq(0.05,0.95, 0.1)
+pesos.prior <- c(1, 5.2, 8, 7.2, 4.6, 2.1, 0.7, 0.1, 0, 0)
+prior <- pesos.prior/sum(pesos.prior) 
+prior_df <- data_frame(theta, prior = round(prior, 3))
+prior_df
+
+library(LearnBayes)
+N <- 50 # parejas
+z <- 30 # éxitos
+
+# Verosimilitud
+Like <- theta ^ z * (1 - theta) ^ (N - z)
+product <- Like * prior
+
+# Distribución posterior (normalizamos)
+post <- product / sum(product)
+
+dists <- bind_cols(prior_df, post = post)
+round(dists, 3)
+
+dists_l <- dists %>% 
+  gather(dist, val, prior:post)
+
+ggplot(dists_l, aes(x = theta, y = val)) +
+  geom_bar(stat = "identity", fill = "darkgray") + 
+  facet_wrap(~ dist) +
+  labs(x = expression(theta), y = expression(p(theta))) 
+```
+
+De hecho viendo la aposteriori podemos decir que hasta más de 0.5.
+
+Supón que la farmacéutica asevera que la probabilidad de concebir un niño cuando se toma la medicina es cercana al 60% con alta certeza. Representa esta postura con una distribución inicial Beta(60,40). Comparala con la inicial de un escéptico que afirma que la medicina no hace diferencia, representa esta creencia con una inicial Beta(50,50). Recuerda que
+p(x)=Beta(z+a,N−z+b)/Beta(a,b)
+p(x)=Beta(z+a,N−z+b)/Beta(a,b)
+Calcula el valor de p(x)p(x) para cada modelo y el factor de Bayes (asume p(M1)=p(M2)=0.5p(M1)=p(M2)=0.5).
+
+```{r}
+
+N = 50; z = 30; a = 60; b = 40
+#con Beta(60,40)
+p1<-beta(z+a,N-z+b)/beta(a,b)
+#modelo 60,40
+p1
+
+N = 50; z = 30; a = 50; b =50
+#con Beta(50,50)
+p2<-beta(z+a,N-z+b)/beta(a,b)
+#modelo 50,50
+p2
+
+#Factor de Bayes:
+p1/p2
+
+```
+
+2. Otra familia conjugada
+Supongamos que nos interesa analizar el IQ de una muestra de estudiantes del ITAM y suponemos que el IQ de un estudiante tiene una distribución normal x∼N(θ,σ2)x∼N(θ,σ2) con σ2σ2 conocida.
+
+Considera que observamos el IQ de un estudiante xx. La verosimilitud del modelo es:
+p(x|θ)=12πσ2‾‾‾‾‾√exp(−12σ2(x−θ)2)
+p(x|θ)=12πσ2exp(−12σ2(x−θ)2)
+
+Realizaremos un análisis bayesiano por lo que hace falta establer una distribución inicial, elegimos p(θ)p(θ) que se distribuya N(μ,τ2)N(μ,τ2) donde elegimos los parámetros μ,τμ,τ que mejor describan nuestras creencias iniciales, por ejemplo si tengo mucha certeza de que el IQIQ promedio se ubica en 150, elegiría μ=150μ=150 y una desviación estándar chica por ejemplo τ=5τ=5. Entonces la distribución inicial es:
+
+p(θ)=12πτ2‾‾‾‾‾√exp(−12τ2(θ−μ)2)
+p(θ)=12πτ2exp(−12τ2(θ−μ)2)
+
+Calcula la distribución posterior p(θ|x)∝p(x|θ)p(θ)p(θ|x)∝p(x|θ)p(θ), usando la inicial y verosimilitud que definimos arriba. Una vez que realices la multiplicación debes identificar el núcleo de una distribución Normal, ¿cuáles son sus parámetros (media y varianza)?
+
+```{r}
+#varianza de la población conocida
+sigma2=8
+tau=1/8
+#a priori
+media0=100
+varianza0=4
+sd0=sqrt(varianza0)
+tau0=1/4
+.x <- seq(media0-3.5126*sd0, media0+3.5126*sd0, length.out=1000)
+plot(.x, dnorm(.x, mean=media0, sd=2), type="l", xlab="x",
+ ylab="Density",
+ main=paste("mu a priori-> Normal [",media0,";sigma=",sd0, "]"))
+remove(.x)
+#muestra
+n=20
+mediamuestral=150
+varianzamuestral=25
+# equivalencia de la verosimilitud
+varequival=sigma2/(n*varianzamuestral)
+sdequival=sqrt(varequival)
+.x <- seq(mediamuestral-3.5126*sdequival, mediamuestral+3.5126*sdequival,
+length.out=1000)
+plot(.x, dnorm(.x, mean=mediamuestral, sd=sdequival), type="l", xlab="x",
+ ylab="Density",
+ main=paste(" verosimilitud para mu equivale a Normal
+[",mediamuestral,";sigma=",sdequival, "]"))
+remove(.x)
+## a posteriori
+media1=(tau0*media0+n*tau*mediamuestral)/(tau0+n*tau)
+tau1=tau0+n*tau
+sd1=sqrt(1/tau1)
+.x <- seq(media1-3.5126*sd1, media1+3.5126*sd1, length.out=1000)
+plot(.x, dnorm(.x, mean=media1, sd=sd1), type="l", xlab="x",
+ ylab="Density",
+ main=paste(" mu a posterriori -> Normal [",media1,";sigma=",sd1, "]"))
+remove(.x)
+```
+3. Metropolis
+En el ejercicio anterior hiciste cálculos para el caso de una sola observación. En este ejercicio consideramos el caso en que observamos una muestra x={x1,...,xN}x={x1,...,xN}.
+
+Crea una función priorprior que reciba los parámetros μμ y ττ que definen tus creencias del parámetro desconocido θθ y devuelva p(θ)p(θ), donde p(θ)p(θ) tiene distriución N(μ,σ2)
+```{r}
+prior <- function(mu, tau){
+  function(theta){
+    dnorm(theta, mean=mu, sd=tau)
+  }
+}
+
+```
+b.Utiliza la función que acabas de escribir para definir una distribución inicial con parámetros μ=150μ=150 y τ=15τ=15, llámala mi_prior.
+Ya que tenemos la distribución inicial debemos escribir la verosimilitud, en este caso la verosimilitud es:
+```{r}
+mi_prior<-prior(150,15)
+```
+
+c.Crea una función likeNormlikeNorm en R que reciba la desviación estándar, la suma de los valores observados ∑xi∑xi, la suma de los valores al cuadrado ∑x2i∑xi2 y el número de observaciones NN la función devolverá la función de verosimilitud (es decir va a regresar una función que depende únicamente de θθ).
+
+```{r}
+# S: sum x_i, S2: sum x_i^2, N: número obs.
+likeNorm <- function(S, S2, N){
+  function(theta){
+    
+    (1/((2*pi*20**2)**(N/2)))*exp((-1/(2*20**2))*(S2-2*theta*S+N*theta**2))
+    
+  }
+}
+```
+
+Supongamos que aplicamos un test de IQ a 100 alumnos y observamos que la suma de los puntajes es 13300, es decir ∑xi=13,000∑xi=13,000 y ∑x2i=1,700,000∑xi2=1,700,000. Utiliza la función que acabas de escribir para definir la función de verosimilitud condicional a los datos observados, llámala mi_like.
+
+```{r}
+mi_like<-likeNorm(13000,1700000,100)
+```
+
+e.La distribución posterior no normalizada es simplemente el producto de la inicial y la posterior:
+```{r}
+postRelProb <- function(theta){
+  mi_like(theta) * mi_prior(theta)
+}
+```
+Utiliza Metropolis para obtener una muestra de valores representativos de la distribución posterior de θθ. Para proponer los saltos utiliza una Normal(0, 5).
+
+Grafica los valores de la cadena para cada paso.
+```{r}
+library(ggplot2)
+# para cada paso decidimos el movimiento de acuerdo a la siguiente función
+caminaAleat <- function(theta){ # theta: valor actual
+  salto_prop <- rnorm(1, 0, sd = 5) # salto propuesto
+  theta_prop <- theta + salto_prop # theta propuesta
+  if(theta_prop < 0 | theta_prop > 1){ # si el salto implica salir del dominio
+    return(theta)
+  }
+  u <- runif(1) 
+  p_move <-  min(ifelse(postRelProb(theta)!=0,postRelProb(theta_prop) / postRelProb(theta),1.1), 1) # prob mover
+  print(p_move)
+  if(p_move  > u){
+    return(theta_prop) # aceptar valor propuesto
+  }
+  else{
+    return(theta) # rechazar
+  }
+}
+
+set.seed(47405)
+
+pasos <- 6000
+camino <- numeric(pasos) # vector que guardará las simulaciones
+camino[1] <- 0.1 # valor inicial
+
+# Generamos la caminata aleatoria
+for (j in 2:pasos){
+  camino[j] <- caminaAleat(camino[j - 1])
+}
+
+caminata <- data.frame(pasos = 1:pasos, theta = camino)
+
+ggplot(caminata[1:3000, ], aes(x = pasos, y = theta)) +
+  geom_point(size = 0.8) +
+  geom_path(alpha = 0.5) +
+  scale_y_continuous(expression(theta), limits = c(0, 1)) +
+  scale_x_continuous("Tiempo") +
+  geom_vline(xintercept = 600, color = "red", alpha = 0.5)
+```
+
+
+
+

@@ -1,0 +1,12 @@
+
+model {
+
+	for (i in 1:N) {
+		x[i]~sigma2*dnorm(0, tau)
+	}
+
+	tau <- pow(sigma, -1)
+
+	sigma2 ~ dunif(0.1, 300)
+}
+

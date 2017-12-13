@@ -1,0 +1,121 @@
+---
+title: "Est-Comp045"
+author: "Abraham Nieto 51556"
+date: "6 de septiembre de 2017"
+output: html_document
+---
+
+```{r options, echo = FALSE, message=FALSE, error=TRUE}
+knitr::opts_chunk$set(
+    comment = "#>",
+    collapse = TRUE
+)
+comma <- function(x) format(x, digits = 2, big.mark = ",")
+options(digits=3)
+
+library(tidyverse)
+library(magrittr)
+theme_set(theme_minimal())
+```
+
+
+
+
+```{r}
+x<-c(94, 197, 16, 38, 99, 141, 23)
+y<-c(52, 104, 146, 10, 51, 30, 40, 27, 46)
+
+```
+
+1.-Usa las medias de las muestras para determinar si hay diferencias en los grupos, esto es calcula
+$\bar{x}-\bar{y}$.
+```{r}
+dif=abs(mean(x)-mean(y))
+dif
+```
+
+2.-Estima el error estándar de la diferencia usando bootsrap.
+
+```{r}
+vBoot <- function(x){ 
+  # x: variable de interés
+  # n: número de replicaciones bootstrap
+  n <- length(x)
+  muestra_ix <- sample(c(1:n), size = n, replace = TRUE) 
+  mean(x[c(muestra_ix)])
+}
+x_b<-rerun(5000, vBoot(x)) %>% flatten_dbl()
+y_b<-rerun(5000, vBoot(y)) %>% flatten_dbl()
+sd(x_b-y_b)
+```
+
+
+3.-Corrobora tus resultados del punto anterior usando que $\hat{se}(\bar{x}-\bar{y})=\sqrt{\hat{se}(\bar{x})^2 + \hat{se}(\bar{y})^2}$
+
+```{r}
+
+x_b<-rerun(5000, vBoot(x)) %>% flatten_dbl()
+y_b<-rerun(5000, vBoot(y)) %>% flatten_dbl()
+
+sqrt((sd(x_b))**2 + (sd(y_b))**2)
+```
+
+
+4.-¿Dirías que el tratamiento incrementó la supervivencia de los ratones?
+
+Para responder esta pregunta podemos observar el intervalo de confianza:
+
+```{r}
+library(ggplot2)
+xbar<-mean(x)
+ybar<-mean(y)
+se<-sqrt((sd(x_b))**2 + (sd(y_b))**2)
+IC<-c(xbar-ybar-1.96*se,xbar-ybar+1.96*se)
+IC
+df2<-data.frame(z=x_b-y_b)
+ggplot(df2,aes(x=z))+geom_density()+geom_vline(xintercept=IC[1])+geom_vline(xintercept=IC[2])+geom_vline(xintercept =0,colour='red')
+
+```
+
+Con un 95% de confianza podemos observar que el intervalo marcado en la gráfica está entre -22 y 83 en otras palabras contiene al $0$ por tanto no podemos rechazar la hipótesis de las diferencias sean menores o iguales entonces eltratamiento NO incrementó la supervivencia de los ratones.
+
+Ahora si revisamos en que proporción los resultados son positivos podemos calcular el % de veces que la diferencia es mayor que cero...
+```{r}
+positivo<-nrow(filter(df2,z>0))/nrow(df2)*100
+positivo
+```
+el 86.7% de las veces podemos decir que sí incrementó la vida de los ratones.
+
+
+5.-Supongamos que deseamos comparar los grupos usando las medianas en lugar de las medias, estima la
+diferencia de las medias y usa bootsrtap para estimar el error estándar de la diferencia. ¿Cuál es tu
+conclusión de los resultados?
+
+```{r}
+medBoot <- function(x){ 
+  # x: variable de interés
+  # n: número de replicaciones bootstrap
+  n <- length(x)
+  muestra_ix <- sample(c(1:n), size = n, replace = TRUE) 
+  median(x[c(muestra_ix)])
+}
+x_b<-rerun(5000, medBoot(x)) %>% flatten_dbl()
+y_b<-rerun(5000, medBoot(y)) %>% flatten_dbl()
+sd(x_b-y_b)
+xbar<-mean(x_b)
+ybar<-mean(y_b)
+se<-sd(x_b-y_b)
+#error estandar 
+se
+df<-data.frame(z=x_b-y_b)
+ggplot(df,aes(x=z))+geom_density()+geom_vline(xintercept =0,colour='red')
+
+```
+
+En este caso podemos ver que...
+```{r}
+positivo<-nrow(filter(df,z>0))/nrow(df)*100
+positivo
+```
+
+el 66% de las ocasiones mejoró la supervivencia este caso muestra que no funcionó.

@@ -1,0 +1,150 @@
+---
+title: "11-Tarea" 
+Author: "Abraham Nieto 51556" 
+
+output: html_document
+---
+
+1. En este ejercicio usaremos los datos _threept_, éstos corresponden a 
+lanzamientos para encestar canastas de 3 puntos, las variables _r_ y _ángulo_
+indican la posición desde donde se lanzó el balón, siendo _r_ la distancia 
+entre el jugador y la canasta y _angle_ el ángulo entre ellos.
+
+```{r}
+threept <- read.csv("threept.csv")
+head(threept)
+```
+
+
+* ¿La posición en la cancha influye en la probabilidad de éxito (encestar)?
+Piensa en una manera gráfica de visualizar esta pregunta y pruebala usando 
+inferencia gráfica.
+
+
+
+
+```{r}
+# Inference
+library(ggplot2)
+library(nullabor)
+fit <- lm(r ~ poly(angle, 2), data = threept) 
+n <- 10
+# matriz de covariables
+X <- model.matrix(r ~ poly(angle, 2), threept)
+n_obs <- nrow(X)
+sims <- rep(X %*% coef(fit), n - 1) + rnorm((n - 1) * n_obs, mean = 0, sd = 1) 
+
+threept_3<- data.frame(
+    angle = rep(threept$angle, n), # el valor de x (ángulo) para cada panel
+    r = c(threept$r, sims),  # distancias simuladas y observadas
+    result=(threept$result),
+    id = rep(sample(1:n, size = n), each = n_obs)) # id aleatorio para esconder los datos 
+
+ggplot(threept_3, aes(x = angle , y = r)) +
+    geom_point(aes(color=result),alpha = 0.5, size = 0.8) +
+    scale_x_continuous("Angle (degrees)", 
+        breaks = c(0, 45, 90, 135, 180)) +
+    facet_wrap(~ id, nrow = 2)
+
+
+
+```
+Graficamente al revisar los puntos rojos que significan que si ecesta de 3 pts. parece que hay mas de ellos mientras el angulo es mas cercano a 90 y la distancia mas lejana por tanto si iflye en la probabilidad de encestar la posicion.
+
+2. Se busca estudiar el efecto de pesticidas en el control de cucarachas en 
+departamentos urbanos. Se realiza un experimento deonde se dividen los 
+departamentos en grupo de tratamiento (160 deptos.) y grupo de control 
+(104 deptos.). En cada departamento se mide el número de cucarachas atrapadas
+$y_i$ en un conjunto de trampas. Distintos departamentos tuvieron trampas un 
+número distinto de días, y denotamos por $u_i$ el número de días-trampa en el 
+i-ésimo departamento. Se propone el siguiente modelo: 
+$$y_i \sim Poisson(u_i,exp(X\beta))$$
+donde X reprersenta variables explicativas (predictores), en este caso, 
+consisten en el nivel de cucarachas antes del tratamiento (roach1), una variable
+binaria indicando si se aplica insecticida en el departamento (treatment) y una
+variable binaria indicando si el edificio es de personas mayor (senior). En R el
+modelo se ajusta como sigue:
+
+```{r}
+roachdata <- read.csv("roachdata.csv", stringsAsFactors = FALSE)
+glm_1 <- glm(y ~ roach1 + treatment + senior, family = poisson, 
+  offset = exposure2, data = roachdata)
+```
+
+* ¿Qué tan bien se ajusta el modelo a los datos? Para responder esta pregunta
+crea 19 datos simulados y grafica un histograma de los datos junto con 
+los datos verdaderos. Para simular del modelo puedes usar el siguiente código:
+
+```{r}
+n <- nrow(roachdata)
+X <- model.matrix(~ roach1 + treatment + senior, family = poisson, 
+  data = roachdata)
+y_hat <- roachdata$exposure2 * exp(X %*% coef(glm_1))
+y_rep <- rpois(n, y_hat)
+```
+
+```{r}
+n_obs<-nrow(roachdata)
+n<-20
+yy_3 <- data.frame(
+    resp= c(predict(glm_1), y_rep), 
+    id = rep(sample(1:n, size = n), each = n_obs)) 
+
+ggplot(data=yy_3,aes(x=resp))+geom_histogram(binwidth = .9)+ facet_wrap(~ id, nrow = 2)+scale_x_continuous(limits = c(0,20))
+
+```
+
+* ¿En que se diferencían los datos observados de los simulados?
+
+en qu los simulados estan mejor distribuidos que los verdaderso ya que se ven sesgados.
+
+
+3. Neurocientíficos cognitivos investigan que áreas del cerebro se activan 
+durante una tarea específica. Es común que los investigadores observen que un
+área particular del cerebro se encuentra activa y a partir de ello infieran que
+se está llevando a cabo una función cognitiva particuar. En un artículo Poldrack 
+notó que esas inferencias no tenían mucho sustento, y recomendó que se usara la 
+regla de Bayes. Poldrack reportó la siguiente tabla de frecuencias basada en 
+estudios de tareas relacionadas con lenguaje, en la tabla se reporta si la tarea
+esta relacionada con lenguaje y si la región de interés (ROI) estaba activa o 
+inactiva durante la tarea. 
+
+Estudio | Lenguaje | No lenguaje
+--------|----------|-------------
+Activa  | 166      | 199
+Inactiva| 703      | 2154
+
+Supón que se realiza un estudio y se observa que la región de interés esta 
+activa. Si la probabilidad inicial de que la tarea involucre procesamiento de 
+lenguaje es 0.5, ¿cuál es la probabilidad posterior condicional a que la región
+esta activa?
+
+Usando Regla de Bayes queremos calcular:
+$$
+P(Lenguaje|Activa)=\frac{P(Activa|Lenguaje)*P(Lenguaje)}{P(Activa)}=\frac{.19*.5}{.45}=.21
+$$
+
+y su maxima verosimilitud es:
+$$
+log(P(Lenguaje))+log(P(Activa|Lenguaje))
+$$
+Funcion log_bayes:
+
+```{r}
+l_bayes<-function(S){
+  function(theta){
+    log(theta)+log(S)
+  }
+}
+
+xy <- data.frame(x = 0:1, y = 0:1)
+
+log_verosimilitud <- ggplot(xy, aes(x = x, y = y)) +
+    stat_function(fun = l_bayes(S = .19))+
+    xlab(expression(theta)) +
+    ylab(expression(l(theta))) +
+    ggtitle("log-verosimilitud (S=0.19)")  
+
+log_verosimilitud
+```
+
